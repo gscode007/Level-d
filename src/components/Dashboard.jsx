@@ -30,9 +30,9 @@ export default function Dashboard({
     }}>
       {/* Header */}
       <header style={{ marginBottom: isMobile ? 14 : 20 }}>
-        <p style={S.eyebrow}>Level {level.num}</p>
+        <p style={S.eyebrow}>Level {level.num} · Becoming</p>
         <h1 style={{ ...S.pageH1, fontSize: isMobile ? 24 : 30 }}>
-          {level.title || "Your Journey"}
+          {level.title || "Becoming"}
         </h1>
       </header>
 

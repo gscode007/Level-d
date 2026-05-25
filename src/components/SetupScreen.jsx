@@ -140,8 +140,8 @@ export default function SetupScreen({ level, onFinish }) {
         {step === 0 && (
           <div style={{ animation: "fadeUp 0.3s var(--easing-out)" }}>
             <p style={S.eyebrow}>Level {level.num}</p>
-            <h1 style={S.setupH}>Name this chapter<br />of your life</h1>
-            <p style={S.setupDesc}>A short title for this level — the name of your current chapter.</p>
+            <h1 style={S.setupH}>Name who you're<br />becoming</h1>
+            <p style={S.setupDesc}>A short title for this chapter — the version of you taking shape.</p>
             <input
               style={S.bigInput}
               value={title}
@@ -164,8 +164,8 @@ export default function SetupScreen({ level, onFinish }) {
         {step === 1 && (
           <div style={{ animation: "fadeUp 0.3s var(--easing-out)" }}>
             <p style={S.eyebrow}>{title}</p>
-            <h1 style={S.setupH}>One goal per<br />dimension</h1>
-            <p style={S.setupDesc}>The main intention for each area this level.</p>
+            <h1 style={S.setupH}>Who you're<br />becoming</h1>
+            <p style={S.setupDesc}>An identity statement for each dimension. Your habits will be evidence for these.</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
               {USER_CATEGORIES.map(cat => (
                 <div key={cat} style={S.catGoalRow}>
@@ -177,7 +177,7 @@ export default function SetupScreen({ level, onFinish }) {
                     style={S.inlineInput}
                     value={catGoals[cat]}
                     onChange={e => setCatGoals(g => ({ ...g, [cat]: e.target.value }))}
-                    placeholder={`${cat.toLowerCase()} intention…`}
+                    placeholder="becoming…"
                   />
                 </div>
               ))}
@@ -286,9 +286,9 @@ export default function SetupScreen({ level, onFinish }) {
         {step === 3 && (
           <div style={{ animation: "fadeUp 0.3s var(--easing-out)" }}>
             <p style={S.eyebrow}>{title}</p>
-            <h1 style={S.setupH}>Add your first<br />goals</h1>
+            <h1 style={S.setupH}>Cast your first<br />votes</h1>
             <p style={S.setupDesc}>
-              Habits earn XP daily. Milestones are objectives broken into steps.
+              Habits are daily evidence. Milestones mark turning points. Each one votes for who you're becoming.
             </p>
             <div style={{
               padding: "8px 12px", marginBottom: 14,

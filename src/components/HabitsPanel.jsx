@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { CAT_META } from "../constants";
-import { todayStr, calcBaseXP, calcHabitXP, getThisWeekCount } from "../utils";
+import { todayStr, calcBaseXP, calcHabitXP, getThisWeekCount, getGoalIdentities } from "../utils";
 import { S } from "../styles";
 import { useIsMobile } from "../hooks/useIsMobile";
 
@@ -216,11 +216,30 @@ export default function HabitsPanel({ level, state, onCompleteHabitual, onResist
                 <div style={{
                   fontSize: 9, color: "var(--text-tertiary)",
                   fontFamily: "var(--font-mono)", letterSpacing: "0.06em", marginTop: 2,
+                  display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap",
                 }}>
-                  {g.category.toUpperCase()}
-                  {isWeekly
-                    ? ` · ${thisWeekCnt}/${freq}/wk${streak > 1 ? ` · ${streak}W STK` : ""}`
-                    : streak > 1 ? ` · ${streak}D STK` : ""}
+                  <span>{g.category.toUpperCase()}</span>
+                  {getGoalIdentities(g).filter(id => id !== g.category).map(id => {
+                    const meta = CAT_META[id];
+                    if (!meta) return null;
+                    return (
+                      <span
+                        key={id}
+                        title={`Also votes for ${id}`}
+                        style={{
+                          color: meta.accent,
+                          fontSize: 10,
+                          lineHeight: 1,
+                          opacity: 0.85,
+                        }}
+                      >{meta.symbol}</span>
+                    );
+                  })}
+                  <span>
+                    {isWeekly
+                      ? ` · ${thisWeekCnt}/${freq}/wk${streak > 1 ? ` · ${streak}W STK` : ""}`
+                      : streak > 1 ? ` · ${streak}D STK` : ""}
+                  </span>
                 </div>
                 {g.anchor?.cue && (
                   <div style={{

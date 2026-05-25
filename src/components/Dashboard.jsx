@@ -17,9 +17,10 @@ export default function Dashboard({
 
   const catCardProps = (cat) => ({
     cat,
-    score:  state.catScores[cat] || 0,
-    rank:   state.catRanks[cat]  || "E",
-    weight: level.weights?.[cat] || 0,
+    score:     state.catScores[cat] || 0,
+    rank:      state.catRanks[cat]  || "E",
+    weight:    level.weights?.[cat] || 0,
+    statement: level.categoryGoals?.[cat] || "",
     onClick: () => setSelectedCat(cat),
   });
 

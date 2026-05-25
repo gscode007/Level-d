@@ -8,7 +8,7 @@ function perfColor(pct) {
   return "var(--red)";
 }
 
-export default function CatCard({ cat, score, rank, weight, onClick }) {
+export default function CatCard({ cat, score, rank, weight, statement, onClick }) {
   const { symbol, accent } = CAT_META[cat];
   const pct      = getRankPct(score, rank);
   const rankColor = RANK_COLOR[rank];
@@ -79,6 +79,24 @@ export default function CatCard({ cat, score, rank, weight, onClick }) {
           }}>{rank}</span>
         </div>
       </div>
+
+      {/* Identity statement — quiet line above the score */}
+      {statement && (
+        <div style={{
+          fontSize: 11,
+          color: "var(--text-secondary)",
+          fontStyle: "italic",
+          marginBottom: 8,
+          lineHeight: 1.35,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          display: "-webkit-box",
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: "vertical",
+        }}>
+          {statement}
+        </div>
+      )}
 
       {/* Score */}
       <div style={{

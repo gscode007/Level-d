@@ -36,6 +36,11 @@ export const genId = () => Math.random().toString(36).slice(2, 10);
 
 export const todayStr = () => new Date().toDateString();
 
+// Resolves a goal's full identity list. Legacy goals (no identities field) fall
+// back to [category]. Primary category always owns XP; extras are visual votes.
+export const getGoalIdentities = (goal) =>
+  goal?.identities && goal.identities.length > 0 ? goal.identities : [goal?.category].filter(Boolean);
+
 export const getOverallScore = (scores, weights) => {
   const total = Object.values(weights).reduce((s, v) => s + v, 0);
   if (!total) return 0;

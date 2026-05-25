@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { USER_CATEGORIES, HABIT_TEMPLATES, MILESTONE_TEMPLATES, DIFFICULTY_MULTIPLIER, SMART_TEMPLATE, FREQUENCY_OPTIONS } from "../constants";
+import { USER_CATEGORIES, CAT_META, HABIT_TEMPLATES, MILESTONE_TEMPLATES, DIFFICULTY_MULTIPLIER, SMART_TEMPLATE, FREQUENCY_OPTIONS } from "../constants";
 import { calcBaseXP } from "../utils";
 import { S } from "../styles";
 
@@ -32,10 +32,25 @@ export default function AddSheet({ type, editing, onAdd, onUpdate, onClose }) {
     editing?.milestoneSteps?.map(s => ({ name: s.name, completed: s.completed })) || [{ name: "" }, { name: "" }]
   );
 
+  // Secondary identities a habit "also votes for". Primary `cat` owns XP;
+  // secondaries are visual credit only. Persisted as full list incl. primary.
+  const [secondaries, setSecondaries] = useState(() => {
+    const ids = editing?.identities;
+    const primary = editing?.category;
+    if (Array.isArray(ids) && ids.length > 0) return ids.filter(i => i !== primary);
+    return [];
+  });
+
   const [anchor, setAnchor]   = useState({ ...EMPTY_ANCHOR, ...(editing?.anchor || {}) });
   const [notes, setNotes]     = useState(editing?.notes || "");
   const [fallback, setFallback] = useState(editing?.ifThenFallback || "");
   const [anchorOpen, setAnchorOpen] = useState(isEditMode && !!editing?.anchor?.cue);
+
+  // If the user changes primary category to one currently selected as secondary,
+  // drop it from secondaries so a dimension can't be both primary and secondary.
+  useEffect(() => {
+    setSecondaries(prev => prev.filter(i => i !== cat));
+  }, [cat]);
 
   useEffect(() => {
     if (isEditMode) return;
@@ -65,9 +80,18 @@ export default function AddSheet({ type, editing, onAdd, onUpdate, onClose }) {
     return extras;
   }
 
+  // Only persist `identities` when there's at least one secondary. Single-identity
+  // habits keep the legacy shape (no identities field) — the helper handles that.
+  function packIdentities() {
+    if (isQuit || effectiveType !== "habitual") return null;
+    if (secondaries.length === 0) return null;
+    return [cat, ...secondaries];
+  }
+
   function handleSubmit() {
     if (!name.trim()) return;
     const extras = packExtras();
+    const identities = packIdentities();
 
     if (isEditMode) {
       const patch = { name: name.trim(), template, difficulty, ...extras };
@@ -82,6 +106,8 @@ export default function AddSheet({ type, editing, onAdd, onUpdate, onClose }) {
         if (validSteps.length === 0) return;
         patch.milestoneSteps = validSteps;
       }
+      // identities: explicit array when multi, explicit null when collapsed back to single
+      if (!isQuit && effectiveType === "habitual") patch.identities = identities;
       onUpdate(patch);
       return;
     }
@@ -96,6 +122,7 @@ export default function AddSheet({ type, editing, onAdd, onUpdate, onClose }) {
       return;
     }
     const base = { name: name.trim(), category: cat, template, difficulty, type: effectiveType, frequency, ...extras };
+    if (identities) base.identities = identities;
     if (effectiveType === "milestone") {
       const validSteps = steps.filter(s => s.name.trim()).map(s => ({ name: s.name.trim(), completed: false }));
       if (validSteps.length === 0) return;
@@ -212,6 +239,52 @@ export default function AddSheet({ type, editing, onAdd, onUpdate, onClose }) {
             ))}
           </div>
         </div>
+
+        {/* Also votes for (secondary identities — habitual only) */}
+        {!isQuit && effectiveType === "habitual" && (
+          <div style={{ marginBottom: 14 }}>
+            <label style={S.fLbl}>
+              Also votes for{" "}
+              <span style={{ color: "var(--text-tertiary)", fontWeight: 400, textTransform: "none", letterSpacing: "0.02em" }}>
+                — extra identities this habit supports
+              </span>
+            </label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {USER_CATEGORIES.filter(c => c !== cat).map(c => {
+                const meta = CAT_META[c];
+                const active = secondaries.includes(c);
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setSecondaries(prev =>
+                      prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]
+                    )}
+                    style={{
+                      display: "inline-flex", alignItems: "center", gap: 5,
+                      padding: "5px 10px", borderRadius: 999,
+                      fontSize: 11, fontWeight: 600, cursor: "pointer",
+                      fontFamily: "var(--font-mono)", letterSpacing: "0.03em",
+                      background: active ? `${meta.accent}20` : "var(--surface-2)",
+                      color: active ? meta.accent : "var(--text-tertiary)",
+                      border: `1px solid ${active ? meta.accent : "var(--border)"}`,
+                      boxShadow: active ? `0 0 8px ${meta.accent}40` : "none",
+                      transition: "all 0.15s",
+                    }}
+                  >
+                    <span style={{ fontSize: 12, lineHeight: 1 }}>{meta.symbol}</span>
+                    {c}
+                  </button>
+                );
+              })}
+            </div>
+            {secondaries.length === 0 && (
+              <p style={{ fontSize: 9, color: "var(--text-tertiary)", fontFamily: "var(--font-mono)", marginTop: 6, letterSpacing: "0.04em" }}>
+                XP STILL ACCRUES ONLY TO {cat.toUpperCase()} · SECONDARIES ARE VISUAL VOTES
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Frequency (habits only) */}
         {(effectiveType === "habitual" || isQuit) && (

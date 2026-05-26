@@ -15,19 +15,26 @@
 import crypto from "node:crypto";
 import admin from "firebase-admin";
 
-function db() {
-  if (!admin.apps.length) {
-    const projectId   = process.env.FIREBASE_PROJECT_ID;
-    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-    let privateKey    = process.env.FIREBASE_PRIVATE_KEY;
-    if (!projectId || !clientEmail || !privateKey) {
-      throw new Error("Firebase admin env vars not set (FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY)");
-    }
-    if (privateKey.includes("\\n")) privateKey = privateKey.replace(/\\n/g, "\n");
-    admin.initializeApp({
-      credential: admin.credential.cert({ projectId, clientEmail, privateKey }),
-    });
+// initAdmin must run before any admin.auth() / admin.firestore() call, or
+// the SDK throws app/no-app. Previously this lived only inside db(), but
+// authenticateUser uses admin.auth() and never touched db() — so on cold
+// starts the SDK was uninitialized when the first verifyIdToken ran.
+function initAdmin() {
+  if (admin.apps.length) return;
+  const projectId   = process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  let privateKey    = process.env.FIREBASE_PRIVATE_KEY;
+  if (!projectId || !clientEmail || !privateKey) {
+    throw new Error("Firebase admin env vars not set (FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY)");
   }
+  if (privateKey.includes("\\n")) privateKey = privateKey.replace(/\\n/g, "\n");
+  admin.initializeApp({
+    credential: admin.credential.cert({ projectId, clientEmail, privateKey }),
+  });
+}
+
+function db() {
+  initAdmin();
   return admin.firestore();
 }
 
@@ -115,6 +122,7 @@ export default async function handler(req, res) {
 
   let authResult;
   try {
+    initAdmin();
     authResult = await authenticateUser(req);
   } catch (e) {
     return res.status(500).json({ error: e.message });

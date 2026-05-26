@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { S } from "../styles";
+import ApiKeysModal from "./ApiKeysModal";
 
 const NAV_ITEMS = [
   ["dashboard", "Dashboard", "⊞"],
@@ -76,7 +78,8 @@ function CollapsedBar({ view, setView, onToggle }) {
 }
 
 // ── Full sidebar (expanded desktop or mobile drawer) ─────────────────────────
-export default function Sidebar({ view, setView, levelNum, overallRank, user, onSignOut, onReset, collapsed, onToggle, isDrawer, onClose }) {
+export default function Sidebar({ view, setView, levelNum, overallRank, user, onSignOut, onReset, collapsed, onToggle, isDrawer, onClose, aiAgentEnabled, onToggleAgent }) {
+  const [keysOpen, setKeysOpen] = useState(false);
 
   if (collapsed && !isDrawer) {
     return <CollapsedBar view={view} setView={setView} onToggle={onToggle} />;
@@ -206,6 +209,37 @@ export default function Sidebar({ view, setView, levelNum, overallRank, user, on
             </div>
           </div>
 
+          {/* Dev unlock for the optional, paid AI Agent feature.
+              In production this gate would be flipped by a real billing event. */}
+          <button
+            onClick={() => onToggleAgent?.()}
+            title={aiAgentEnabled ? "AI Agent unlocked (dev). Click to lock." : "AI Agent locked. Click to unlock for testing."}
+            style={{
+              width: "100%",
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+              padding: "7px 12px",
+              fontSize: 10,
+              fontFamily: "var(--font-mono)",
+              letterSpacing: "0.08em",
+              border: `1px solid ${aiAgentEnabled ? "var(--accent)" : "var(--border)"}`,
+              borderRadius: 6,
+              background: aiAgentEnabled ? "var(--accent-dim)" : "transparent",
+              color: aiAgentEnabled ? "var(--accent)" : "var(--text-tertiary)",
+              cursor: "pointer",
+              marginBottom: 5,
+              transition: "all 0.15s",
+              boxShadow: aiAgentEnabled ? "0 0 8px var(--accent-glow)" : "none",
+            }}
+          >
+            <span>◆ AI AGENT</span>
+            <span style={{ fontWeight: 700 }}>{aiAgentEnabled ? "ON" : "PRO"}</span>
+          </button>
+
+          <button
+            onClick={() => setKeysOpen(true)}
+            style={{ ...S.ghostBtn, width: "100%", fontSize: 11, padding: "6px 12px", textAlign: "left", letterSpacing: "0.04em", fontFamily: "var(--font-mono)", marginBottom: 5, color: "var(--text-tertiary)" }}
+          >◇ Claude Connector</button>
+
           <button
             onClick={closeIfDrawer(() => { if (window.confirm("Reset all progress?")) onReset(); })}
             style={{ ...S.ghostBtn, width: "100%", fontSize: 11, padding: "6px 12px", textAlign: "left", letterSpacing: "0.04em", fontFamily: "var(--font-mono)", marginBottom: 5, color: "var(--text-tertiary)" }}
@@ -216,6 +250,8 @@ export default function Sidebar({ view, setView, levelNum, overallRank, user, on
           >Sign out</button>
         </div>
       </aside>
+
+      {keysOpen && <ApiKeysModal onClose={() => setKeysOpen(false)} />}
     </>
   );
 }

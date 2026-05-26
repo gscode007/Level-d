@@ -3,17 +3,21 @@ import { CATEGORIES } from "../constants";
 import { S } from "../styles";
 import { useIsMobile } from "../hooks/useIsMobile";
 import RankHero from "./RankHero";
+import IdentityPortrait from "./IdentityPortrait";
 import HabitsPanel from "./HabitsPanel";
 import CatCard from "./CatCard";
 import CategoryModal from "./CategoryModal";
+import WeeklyCheckin from "./WeeklyCheckin";
 
 export default function Dashboard({
   state, level, overallScore, overallRank,
   levelComplete, onAdvance, onCompleteHabitual, onCompleteMilestoneStep,
   onResistQuit, onSuccumbQuit, onGoToGoals,
+  checkinDue, weeklyVotes, onCompleteCheckin, onSkipCheckin,
 }) {
   const isMobile = useIsMobile();
   const [selectedCat, setSelectedCat] = useState(null);
+  const [checkinOpen, setCheckinOpen] = useState(false);
 
   const catCardProps = (cat) => ({
     cat,
@@ -37,6 +41,45 @@ export default function Dashboard({
         </h1>
       </header>
 
+      {checkinDue && (
+        <button
+          onClick={() => setCheckinOpen(true)}
+          style={{
+            width: "100%",
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            gap: 12,
+            padding: isMobile ? "12px 14px" : "14px 18px",
+            marginBottom: 10,
+            background: "rgba(250,204,21,0.06)",
+            border: "1px solid rgba(250,204,21,0.25)",
+            borderLeft: "2px solid var(--yellow)",
+            borderRadius: 8,
+            cursor: "pointer",
+            textAlign: "left",
+            transition: "all 0.15s",
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(250,204,21,0.1)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(250,204,21,0.06)"; }}
+        >
+          <div>
+            <div style={{
+              fontSize: 10, fontWeight: 700, color: "var(--yellow)",
+              fontFamily: "var(--font-mono)", letterSpacing: "0.1em",
+              marginBottom: 3,
+            }}>
+              ◇ WEEKLY CHECK-IN READY
+            </div>
+            <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.4 }}>
+              See where your behavior matched (or didn't) your identity claims this week.
+            </div>
+          </div>
+          <span style={{
+            fontSize: 11, color: "var(--yellow)", fontFamily: "var(--font-mono)",
+            letterSpacing: "0.06em", fontWeight: 700, flexShrink: 0,
+          }}>OPEN →</span>
+        </button>
+      )}
+
       <RankHero
         overallScore={overallScore}
         overallRank={overallRank}
@@ -45,6 +88,8 @@ export default function Dashboard({
         levelComplete={levelComplete}
         onAdvance={onAdvance}
       />
+
+      <IdentityPortrait level={level} state={state} />
 
       {isMobile ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -89,6 +134,16 @@ export default function Dashboard({
           onClose={() => setSelectedCat(null)}
           onCompleteHabitual={(id) => { onCompleteHabitual(id); }}
           onCompleteMilestoneStep={(id, i) => { onCompleteMilestoneStep(id, i); }}
+        />
+      )}
+
+      {checkinOpen && (
+        <WeeklyCheckin
+          level={level}
+          weeklyVotes={weeklyVotes}
+          onSubmit={(updated) => { onCompleteCheckin(updated); setCheckinOpen(false); }}
+          onSkip={() => { onSkipCheckin(); setCheckinOpen(false); }}
+          onClose={() => setCheckinOpen(false)}
         />
       )}
     </div>

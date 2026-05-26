@@ -1,0 +1,302 @@
+/* ==========================================================================
+   Leveld Agent — Design Tokens
+   Personality: MINIMAL + TECHNICAL
+   Version: 1.0.0
+
+   Use:
+   - Wrap any Agent surface in <div data-theme="agent"> to scope these tokens
+     within an otherwise gamified Leveld page.
+   - Components consume SEMANTIC tokens (--color-surface-raised),
+     never primitives (--color-neutral-50).
+   ========================================================================== */
+
+:root {
+  /* ----- Color: Primary (deep slate-indigo) ----- */
+  --color-primary-50:  #F0F1FE;
+  --color-primary-100: #E0E3FC;
+  --color-primary-200: #C5CAFA;
+  --color-primary-300: #A1A8F5;
+  --color-primary-400: #7B82EE;
+  --color-primary-500: #5C61E0;
+  --color-primary-600: #4338CA;
+  --color-primary-700: #3730A3;
+  --color-primary-800: #2E2A80;
+  --color-primary-900: #1E1B4B;
+  --color-primary-950: #100F2B;
+
+  /* ----- Color: Neutral (warm) ----- */
+  --color-neutral-0:   #FFFFFF;
+  --color-neutral-50:  #FAFAF8;
+  --color-neutral-100: #F4F4F0;
+  --color-neutral-200: #E8E8E1;
+  --color-neutral-300: #D4D4CB;
+  --color-neutral-400: #B0B0A4;
+  --color-neutral-500: #8A8A7C;
+  --color-neutral-600: #65655A;
+  --color-neutral-700: #4A4A42;
+  --color-neutral-800: #2E2E29;
+  --color-neutral-900: #1A1A17;
+  --color-neutral-950: #0E0E0C;
+
+  /* ----- Color: Semantic — Success ----- */
+  --color-success-subtle-bg: #ECFDF3;
+  --color-success-bg:        #10B981;
+  --color-success-border:    #A7F3D0;
+  --color-success-fg:        #059669;
+  --color-success-fg-strong: #065F46;
+
+  /* ----- Color: Semantic — Warning ----- */
+  --color-warning-subtle-bg: #FEF7E0;
+  --color-warning-bg:        #D97706;
+  --color-warning-border:    #FDE68A;
+  --color-warning-fg:        #B45309;
+  --color-warning-fg-strong: #78350F;
+
+  /* ----- Color: Semantic — Danger ----- */
+  --color-danger-subtle-bg: #FEF2F2;
+  --color-danger-bg:        #DC2626;
+  --color-danger-border:    #FECACA;
+  --color-danger-fg:        #B91C1C;
+  --color-danger-fg-strong: #7F1D1D;
+
+  /* ----- Color: Semantic — Info (cyan, distinct from indigo primary) ----- */
+  --color-info-subtle-bg: #ECFEFF;
+  --color-info-bg:        #0891B2;
+  --color-info-border:    #A5F3FC;
+  --color-info-fg:        #0E7490;
+  --color-info-fg-strong: #155E75;
+
+  /* ----- Spacing (8px grid, Agent uses bumped defaults) ----- */
+  --space-0:   0;
+  --space-0-5: 2px;
+  --space-1:   4px;
+  --space-2:   8px;
+  --space-3:   12px;
+  --space-4:   16px;
+  --space-5:   20px;  /* Agent default for card padding */
+  --space-6:   24px;
+  --space-8:   32px;
+  --space-10:  40px;
+  --space-12:  48px;
+  --space-16:  64px;
+  --space-20:  80px;
+  --space-24:  96px;
+
+  /* ----- Radii (small — MINIMAL pattern) ----- */
+  --radius-none: 0;
+  --radius-xs:   2px;
+  --radius-sm:   4px;
+  --radius-md:   6px;   /* Agent workhorse */
+  --radius-lg:   10px;
+  --radius-xl:   14px;
+  --radius-full: 9999px;
+
+  /* ----- Typography: families ----- */
+  --font-family-display: "Inter", system-ui, -apple-system, sans-serif;
+  --font-family-text:    "Inter", system-ui, -apple-system, sans-serif;
+  --font-family-mono:    "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* ----- Typography: weights ----- */
+  --font-weight-regular:  400;
+  --font-weight-medium:   500;
+  --font-weight-semibold: 600;
+  --font-weight-bold:     700;
+
+  /* ----- Typography: sizes (1.200 ratio, 15px base for Agent density) ----- */
+  --font-size-xs:         12px;
+  --font-size-sm:         13px;
+  --font-size-base:       15px;
+  --font-size-lg:         18px;
+  --font-size-xl:         22px;
+  --font-size-display-sm: 26px;
+  --font-size-display-md: 32px;
+  --font-size-display-lg: 38px;
+
+  /* ----- Typography: line heights ----- */
+  --line-height-tight:   1.15;
+  --line-height-snug:    1.3;
+  --line-height-normal:  1.5;
+  --line-height-relaxed: 1.6;
+
+  /* ----- Typography: letter spacing ----- */
+  --letter-spacing-tight:  -0.02em;
+  --letter-spacing-snug:   -0.01em;
+  --letter-spacing-normal: 0;
+  --letter-spacing-wide:   0.08em;
+
+  /* ----- Motion: durations (snappier than baseline — TECHNICAL bias) ----- */
+  --duration-instant: 80ms;
+  --duration-fast:    120ms;
+  --duration-base:    160ms;
+  --duration-slow:    240ms;
+  --duration-slower:  360ms;
+
+  /* ----- Motion: easings ----- */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-in:       cubic-bezier(0.4, 0, 1, 1);
+  --ease-out:      cubic-bezier(0, 0, 0.2, 1);
+  --ease-linear:   linear;
+
+  /* ----- Shadows (minimal — borders carry separation) ----- */
+  --shadow-xs: 0 1px 2px rgba(14, 14, 12, 0.04);
+  --shadow-sm: 0 1px 3px rgba(14, 14, 12, 0.06), 0 1px 2px rgba(14, 14, 12, 0.04);
+  --shadow-md: 0 4px 8px rgba(14, 14, 12, 0.06), 0 2px 4px rgba(14, 14, 12, 0.04);
+  --shadow-lg: 0 12px 24px rgba(14, 14, 12, 0.08), 0 4px 8px rgba(14, 14, 12, 0.04);
+  --shadow-xl: 0 24px 48px rgba(14, 14, 12, 0.10), 0 8px 16px rgba(14, 14, 12, 0.06);
+
+  /* ----- Z-index ----- */
+  --z-base:     0;
+  --z-dropdown: 1000;
+  --z-sticky:   1020;
+  --z-banner:   1030;
+  --z-overlay:  1040;
+  --z-modal:    1050;
+  --z-popover:  1060;
+  --z-toast:    1070;
+  --z-tooltip:  1080;
+
+  /* ----- Breakpoints (for JS reference; CSS uses literals in @media) ----- */
+  --bp-sm:  640px;
+  --bp-md:  768px;
+  --bp-lg:  1024px;
+  --bp-xl:  1280px;
+  --bp-2xl: 1536px;
+}
+
+/* ==========================================================================
+   Light theme (default)
+   ========================================================================== */
+:root,
+[data-theme="light"],
+[data-theme="agent"] {
+  --color-surface-base:    var(--color-neutral-0);
+  --color-surface-raised:  var(--color-neutral-0);
+  --color-surface-sunken:  var(--color-neutral-100);
+  --color-surface-overlay: var(--color-neutral-0);
+  --color-surface-inverse: var(--color-neutral-900);
+  --color-surface-agent:   var(--color-neutral-50);
+
+  --color-text-default:    var(--color-neutral-900);
+  --color-text-muted:      var(--color-neutral-600);
+  --color-text-subtle:     var(--color-neutral-500);
+  --color-text-disabled:   var(--color-neutral-400);
+  --color-text-inverse:    var(--color-neutral-0);
+  --color-text-on-brand:   var(--color-neutral-0);
+  --color-text-link:       var(--color-primary-600);
+  --color-text-agent:      var(--color-neutral-900);
+
+  --color-border-subtle:  var(--color-neutral-200);
+  --color-border-default: var(--color-neutral-300);
+  --color-border-strong:  var(--color-neutral-400);
+  --color-border-brand:   var(--color-primary-200);
+
+  --color-action-primary:           var(--color-primary-600);
+  --color-action-primary-hover:     var(--color-primary-700);
+  --color-action-primary-pressed:   var(--color-primary-800);
+  --color-action-secondary:         var(--color-neutral-100);
+  --color-action-secondary-hover:   var(--color-neutral-200);
+  --color-action-secondary-pressed: var(--color-neutral-300);
+
+  --color-focus-ring:         var(--color-primary-500);
+  --color-focus-ring-inverse: var(--color-neutral-0);
+}
+
+/* ==========================================================================
+   Dark theme
+   ========================================================================== */
+[data-theme="dark"],
+[data-theme="agent"][data-color-scheme="dark"] {
+  --color-surface-base:    var(--color-neutral-950);
+  --color-surface-raised:  var(--color-neutral-900);
+  --color-surface-sunken:  var(--color-neutral-950);
+  --color-surface-overlay: var(--color-neutral-800);
+  --color-surface-inverse: var(--color-neutral-50);
+  --color-surface-agent:   var(--color-neutral-800);
+
+  --color-text-default:    var(--color-neutral-100);
+  --color-text-muted:      var(--color-neutral-400);
+  --color-text-subtle:     var(--color-neutral-500);
+  --color-text-disabled:   var(--color-neutral-600);
+  --color-text-inverse:    var(--color-neutral-900);
+  --color-text-on-brand:   var(--color-neutral-0);
+  --color-text-link:       var(--color-primary-400);
+  --color-text-agent:      var(--color-neutral-100);
+
+  --color-border-subtle:  var(--color-neutral-800);
+  --color-border-default: var(--color-neutral-700);
+  --color-border-strong:  var(--color-neutral-600);
+  --color-border-brand:   var(--color-primary-700);
+
+  --color-action-primary:           var(--color-primary-500);
+  --color-action-primary-hover:     var(--color-primary-400);
+  --color-action-primary-pressed:   var(--color-primary-600);
+  --color-action-secondary:         var(--color-neutral-800);
+  --color-action-secondary-hover:   var(--color-neutral-700);
+  --color-action-secondary-pressed: var(--color-neutral-600);
+
+  --color-focus-ring:         var(--color-primary-400);
+  --color-focus-ring-inverse: var(--color-neutral-900);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-surface-base:    var(--color-neutral-950);
+    --color-surface-raised:  var(--color-neutral-900);
+    --color-surface-sunken:  var(--color-neutral-950);
+    --color-surface-overlay: var(--color-neutral-800);
+    --color-surface-inverse: var(--color-neutral-50);
+    --color-surface-agent:   var(--color-neutral-800);
+
+    --color-text-default:  var(--color-neutral-100);
+    --color-text-muted:    var(--color-neutral-400);
+    --color-text-subtle:   var(--color-neutral-500);
+    --color-text-disabled: var(--color-neutral-600);
+    --color-text-inverse:  var(--color-neutral-900);
+    --color-text-link:     var(--color-primary-400);
+    --color-text-agent:    var(--color-neutral-100);
+
+    --color-border-subtle:  var(--color-neutral-800);
+    --color-border-default: var(--color-neutral-700);
+    --color-border-strong:  var(--color-neutral-600);
+    --color-border-brand:   var(--color-primary-700);
+
+    --color-action-primary:         var(--color-primary-500);
+    --color-action-primary-hover:   var(--color-primary-400);
+    --color-action-primary-pressed: var(--color-primary-600);
+
+    --color-focus-ring: var(--color-primary-400);
+  }
+}
+
+/* ==========================================================================
+   Focus ring — keyboard only
+   ========================================================================== */
+:where(:focus-visible) {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+  border-radius: inherit;
+}
+
+/* ==========================================================================
+   Reduced motion
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ==========================================================================
+   Reduced transparency
+   ========================================================================== */
+@media (prefers-reduced-transparency: reduce) {
+  :where([data-glass], [data-backdrop-blur]) {
+    backdrop-filter: none !important;
+    background: var(--color-surface-overlay) !important;
+  }
+}

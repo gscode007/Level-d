@@ -1,5 +1,7 @@
 import { CATEGORIES, USER_CATEGORIES, RANKS, RANK_THRESHOLDS, HABIT_TEMPLATES, MILESTONE_TEMPLATES, DIFFICULTY_MULTIPLIER, CATEGORY_MODIFIER, STREAK_BONUS, INITIAL_EDIT_WINDOW_MS } from "./constants";
 
+export const WEEKLY_CHECKIN_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
+
 // Initial-setup goals stay editable for the first 3 days of a level.
 // User-added goals (locked === false) are always editable.
 export const canEditGoal = (goal, level) => {
@@ -76,6 +78,8 @@ export const mkDefault = () => {
     decayAppliedOn: null,
     consecutiveMissed: 0,
     dailyCatXP: {},
+    aiAgentEnabled: false,
+    lastWeeklyCheckin: null,
   };
 };
 
@@ -131,6 +135,36 @@ export const getPrevWeekCount = (completions) => {
     const d = new Date(ts);
     return d >= prevStart && d < thisStart;
   }).length;
+};
+
+// ── Weekly check-in ───────────────────────────────────────────────────────────
+
+// Counts habit completions in the last 7 days, distributed across each
+// identity the habit votes for (multi-identity habits count for each).
+export const getWeeklyVotes = (level) => {
+  const cutoff = Date.now() - WEEKLY_CHECKIN_INTERVAL_MS;
+  const votes = Object.fromEntries(USER_CATEGORIES.map((c) => [c, 0]));
+  for (const g of level?.goals || []) {
+    if (g.type !== "habitual") continue;
+    const recent = (g.completions || []).filter((ts) => ts >= cutoff).length;
+    if (recent === 0) continue;
+    const identities = getGoalIdentities(g);
+    for (const id of identities) {
+      if (votes[id] !== undefined) votes[id] += recent;
+    }
+  }
+  return votes;
+};
+
+// True once the user has had a level for 7+ days and either has never done a
+// check-in, or it's been ≥7 days since the last one. Skipped during the first
+// week of a level so brand-new users aren't asked to reflect on nothing.
+export const isCheckinDue = (state, level) => {
+  if (!state || !level) return false;
+  const last = state.lastWeeklyCheckin ? new Date(state.lastWeeklyCheckin).getTime() : null;
+  const started = level.startedAt || Date.now();
+  const reference = last || started;
+  return Date.now() - reference >= WEEKLY_CHECKIN_INTERVAL_MS;
 };
 
 // Applies Resilience decay for any missed days since last habit or last decay check.

@@ -4,17 +4,20 @@ import { todayStr, calcBaseXP, getThisWeekCount, canEditGoal, editWindowHoursLef
 import { S } from "../styles";
 import { useIsMobile } from "../hooks/useIsMobile";
 import AddSheet from "./AddSheet";
+import AgentSuggestModal from "./AgentSuggestModal";
 import EmptyHint from "./EmptyHint";
 import HabitCalendar from "./HabitCalendar";
 import QuitCalendar from "./QuitCalendar";
 
 export default function GoalsView({
-  level, state, onAddGoal, onDeleteGoal, onEditGoal,
+  level, state, onAddGoal, onAddGoals, onDeleteGoal, onEditGoal,
   editingGoalId, setEditingGoalId,
   onCompleteHabitual, onCompleteMilestoneStep,
   onResistQuit, onSuccumbQuit,
   addOpen, setAddOpen, addType, setAddType,
+  aiAgentEnabled,
 }) {
+  const [agentOpen, setAgentOpen] = useState(false);
   const editingGoal = editingGoalId
     ? level.goals.find(g => g.id === editingGoalId)
     : null;
@@ -40,9 +43,12 @@ export default function GoalsView({
           <p style={S.eyebrow}>Level {level.num} · {level.title}</p>
           <h1 style={{ ...S.pageH1, fontSize: isMobile ? 24 : 30 }}>Goals</h1>
         </div>
-        <button style={{ ...S.addBtn, flexShrink: 0 }} onClick={() => { setAddType(tab === "quit" ? "quitHabit" : tab); setAddOpen(true); }}>
-          + Add
-        </button>
+        <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+          <AgentButton enabled={aiAgentEnabled} onClick={() => setAgentOpen(true)} />
+          <button style={S.addBtn} onClick={() => { setAddType(tab === "quit" ? "quitHabit" : tab); setAddOpen(true); }}>
+            + Add
+          </button>
+        </div>
       </header>
 
       {showEditBanner && (
@@ -391,7 +397,67 @@ export default function GoalsView({
       {quitCalendarGoal && (
         <QuitCalendar goal={quitCalendarGoal} onClose={() => setQuitCalendarGoal(null)} />
       )}
+
+      {agentOpen && (
+        <AgentSuggestModal
+          level={level}
+          existingGoalNames={level.goals.map(g => g.name)}
+          onAddGoals={onAddGoals}
+          onClose={() => setAgentOpen(false)}
+        />
+      )}
     </div>
+  );
+}
+
+function AgentButton({ enabled, onClick }) {
+  if (!enabled) {
+    return (
+      <button
+        onClick={onClick}
+        title="AI Agent is a Pro feature. Toggle the dev unlock in the sidebar."
+        style={{
+          padding: "9px 14px",
+          fontSize: 12, fontWeight: 600,
+          fontFamily: "var(--font-mono)", letterSpacing: "0.04em",
+          background: "transparent",
+          color: "var(--text-tertiary)",
+          border: "1px dashed var(--border)",
+          borderRadius: 6,
+          cursor: "pointer",
+          display: "inline-flex", alignItems: "center", gap: 8,
+          transition: "all 0.15s",
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.color = "var(--accent)"; }}
+        onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-tertiary)"; }}
+      >
+        ◆ AI Agent
+        <span style={{
+          fontSize: 9, fontWeight: 700,
+          background: "var(--surface-2)", border: "1px solid var(--border)",
+          padding: "1px 5px", borderRadius: 3, letterSpacing: "0.08em",
+        }}>PRO</span>
+      </button>
+    );
+  }
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        padding: "9px 14px",
+        fontSize: 12, fontWeight: 600,
+        fontFamily: "var(--font-mono)", letterSpacing: "0.04em",
+        background: "var(--accent-dim)",
+        color: "var(--accent)",
+        border: "1px solid var(--accent)",
+        borderRadius: 6,
+        cursor: "pointer",
+        boxShadow: "0 0 12px var(--accent-glow)",
+        transition: "all 0.15s",
+      }}
+    >
+      ◆ AI Agent
+    </button>
   );
 }
 

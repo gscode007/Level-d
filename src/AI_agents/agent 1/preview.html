@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Leveld Agent — Design System Preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  /* === Inlined tokens.css === */
+  :root {
+    --color-primary-50: #F0F1FE; --color-primary-100: #E0E3FC; --color-primary-200: #C5CAFA;
+    --color-primary-300: #A1A8F5; --color-primary-400: #7B82EE; --color-primary-500: #5C61E0;
+    --color-primary-600: #4338CA; --color-primary-700: #3730A3; --color-primary-800: #2E2A80;
+    --color-primary-900: #1E1B4B; --color-primary-950: #100F2B;
+    --color-neutral-0: #FFFFFF; --color-neutral-50: #FAFAF8; --color-neutral-100: #F4F4F0;
+    --color-neutral-200: #E8E8E1; --color-neutral-300: #D4D4CB; --color-neutral-400: #B0B0A4;
+    --color-neutral-500: #8A8A7C; --color-neutral-600: #65655A; --color-neutral-700: #4A4A42;
+    --color-neutral-800: #2E2E29; --color-neutral-900: #1A1A17; --color-neutral-950: #0E0E0C;
+    --color-success-subtle-bg: #ECFDF3; --color-success-fg: #059669; --color-success-fg-strong: #065F46;
+    --color-warning-subtle-bg: #FEF7E0; --color-warning-fg: #B45309;
+    --color-danger-subtle-bg: #FEF2F2; --color-danger-fg: #B91C1C;
+    --color-info-subtle-bg: #ECFEFF; --color-info-fg: #0E7490;
+
+    --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+    --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px; --space-12: 48px;
+    --radius-xs: 2px; --radius-sm: 4px; --radius-md: 6px; --radius-lg: 10px; --radius-full: 9999px;
+
+    --font-text: "Inter", system-ui, -apple-system, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+    --font-xs: 12px; --font-sm: 13px; --font-base: 15px; --font-lg: 18px; --font-xl: 22px;
+    --font-display-sm: 26px; --font-display-md: 32px;
+
+    --duration-fast: 120ms; --duration-base: 160ms; --duration-slow: 240ms;
+    --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+    --shadow-sm: 0 1px 3px rgba(14,14,12,.06), 0 1px 2px rgba(14,14,12,.04);
+    --shadow-lg: 0 12px 24px rgba(14,14,12,.08), 0 4px 8px rgba(14,14,12,.04);
+    --shadow-xl: 0 24px 48px rgba(14,14,12,.10), 0 8px 16px rgba(14,14,12,.06);
+  }
+
+  :root, [data-theme="light"] {
+    --color-surface-base: var(--color-neutral-0);
+    --color-surface-raised: var(--color-neutral-0);
+    --color-surface-sunken: var(--color-neutral-100);
+    --color-surface-overlay: var(--color-neutral-0);
+    --color-surface-agent: var(--color-neutral-50);
+    --color-text-default: var(--color-neutral-900);
+    --color-text-muted: var(--color-neutral-600);
+    --color-text-subtle: var(--color-neutral-500);
+    --color-text-on-brand: var(--color-neutral-0);
+    --color-border-subtle: var(--color-neutral-200);
+    --color-border-default: var(--color-neutral-300);
+    --color-border-brand: var(--color-primary-200);
+    --color-action-primary: var(--color-primary-600);
+    --color-action-primary-hover: var(--color-primary-700);
+    --color-action-secondary: var(--color-neutral-100);
+    --color-focus-ring: var(--color-primary-500);
+    --bg-page: #EFEFE8;
+  }
+
+  [data-theme="dark"] {
+    --color-surface-base: var(--color-neutral-950);
+    --color-surface-raised: var(--color-neutral-900);
+    --color-surface-sunken: var(--color-neutral-950);
+    --color-surface-overlay: var(--color-neutral-800);
+    --color-surface-agent: var(--color-neutral-800);
+    --color-text-default: var(--color-neutral-100);
+    --color-text-muted: var(--color-neutral-400);
+    --color-text-subtle: var(--color-neutral-500);
+    --color-text-on-brand: var(--color-neutral-0);
+    --color-border-subtle: var(--color-neutral-800);
+    --color-border-default: var(--color-neutral-700);
+    --color-border-brand: var(--color-primary-700);
+    --color-action-primary: var(--color-primary-500);
+    --color-action-primary-hover: var(--color-primary-400);
+    --color-action-secondary: var(--color-neutral-800);
+    --color-focus-ring: var(--color-primary-400);
+    --bg-page: #08080A;
+  }
+
+  /* === Page chrome === */
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--font-text);
+    background: var(--bg-page);
+    color: var(--color-text-default);
+    transition: background var(--duration-base) var(--ease-standard),
+                color var(--duration-base) var(--ease-standard);
+    min-height: 100vh;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: var(--space-12) var(--space-6);
+  }
+
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: var(--space-12);
+    gap: var(--space-6);
+    flex-wrap: wrap;
+  }
+
+  .page-eyebrow {
+    font-family: var(--font-mono);
+    font-size: var(--font-xs);
+    color: var(--color-text-subtle);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin: 0 0 var(--space-3) 0;
+  }
+  .page-title {
+    font-size: var(--font-display-md);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.15;
+    margin: 0;
+    color: var(--color-text-default);
+  }
+  .page-sub {
+    color: var(--color-text-muted);
+    margin: var(--space-3) 0 0 0;
+    max-width: 60ch;
+    font-size: var(--font-lg);
+  }
+
+  .theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-4);
+    background: var(--color-surface-raised);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-full);
+    font-family: var(--font-text);
+    font-size: var(--font-sm);
+    font-weight: 500;
+    color: var(--color-text-default);
+    cursor: pointer;
+    transition: background var(--duration-fast) var(--ease-standard);
+  }
+  .theme-toggle:hover { background: var(--color-action-secondary); }
+
+  /* === Section frame === */
+  .section {
+    margin-bottom: var(--space-12);
+  }
+  .section-label {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-5);
+  }
+  .section-label-num {
+    font-family: var(--font-mono);
+    font-size: var(--font-xs);
+    color: var(--color-text-subtle);
+    letter-spacing: 0.08em;
+  }
+  .section-label-title {
+    font-size: var(--font-sm);
+    font-weight: 600;
+    color: var(--color-text-default);
+    letter-spacing: -0.01em;
+  }
+  .section-label-meta {
+    font-size: var(--font-xs);
+    color: var(--color-text-subtle);
+    margin-left: auto;
+    font-family: var(--font-mono);
+  }
+  .section-divider {
+    height: 1px;
+    background: var(--color-border-subtle);
+    flex: 1;
+  }
+
+  .surface-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-6);
+  }
+  @media (min-width: 1024px) {
+    .surface-grid.two-up { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* === Phone frame for mobile surfaces === */
+  .phone-frame {
+    margin: 0 auto;
+    width: 380px;
+    max-width: 100%;
+    background: var(--color-surface-base);
+    border-radius: 28px;
+    border: 1px solid var(--color-border-subtle);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+    position: relative;
+  }
+  .phone-status {
+    height: 32px;
+    background: var(--color-surface-base);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 var(--space-5);
+    font-family: var(--font-mono);
+    font-size: var(--font-xs);
+    color: var(--color-text-default);
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+  .phone-status .right { display: flex; gap: var(--space-2); }
+
+  .phone-body {
+    background: var(--color-surface-base);
+    min-height: 600px;
+  }
+
+  /* === InsightCard === */
+  .insight-card {
+    background: var(--color-surface-raised);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-md);
+    padding: var(--space-5);
+  }
+  .insight-card.nudge { border-left: 3px solid var(--color-action-primary); }
+
+  .insight-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+  }
+  .agent-avatar {
+    width: 24px; height: 24px;
+    background: var(--color-primary-900);
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .agent-avatar svg { width: 14px; height: 14px; color: var(--color-primary-100); }
+  [data-theme="dark"] .agent-avatar { background: var(--color-primary-700); }
+
+  .agent-label {
+    font-size: var(--font-sm);
+    font-weight: 600;
+    color: var(--color-text-default);
+  }
+  .agent-time {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: var(--font-xs);
+    color: var(--color-text-subtle);
+  }
+
+  .insight-body {
+    font-size: var(--font-base);
+    color: var(--color-text-default);
+    line-height: 1.5;
+  }
+  .insight-body code {
+    font-family: var(--font-mono);
+    font-size: 0.92em;
+    background: var(--color-surface-sunken);
+    padding: 1px 5px;
+    border-radius: var(--radius-xs);
+    font-variant-numeric: tabular-nums;
+  }
+  .insight-actions {
+    display: flex;
+    gap: var(--space-2);
+    margin-top: var(--space-4);
+  }
+
+  /* === Buttons === */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    padding: 0 var(--space-4);
+    height: 36px;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-text);
+    font-size: var(--font-sm);
+    font-weight: 500;
+    cursor: pointer;
+    transition: background var(--duration-fast) var(--ease-standard),
+                color var(--duration-fast) var(--ease-standard);
+    border: none;
+    line-height: 1;
+  }
+  .btn-sm { height: 28px; padding: 0 var(--space-3); font-size: var(--font-xs); }
+  .btn-lg { height: 44px; padding: 0 var(--space-5); font-size: var(--font-base); }
+
+  .btn-primary { background: var(--color-action-primary); color: var(--color-text-on-brand); }
+  .btn-primary:hover { background: var(--color-action-primary-hover); }
+
+  .btn-secondary {
+    background: var(--color-action-secondary);
+    color: var(--color-text-default);
+    border: 1px solid var(--color-border-default);
+  }
+  .btn-secondary:hover { background: var(--color-border-subtle); }
+
+  .btn-ghost { background: transparent; color: var(--color-text-default); }
+  .btn-ghost:hover { background: var(--color-action-secondary); }
+
+  /* === SuggestionChip === */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    padding: 6px var(--space-3);
+    background: var(--color-surface-sunken);
+    color: var(--color-text-default);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-full);
+    font-size: var(--font-sm);
+    font-weight: 500;
+    cursor: pointer;
+    transition: background var(--duration-fast) var(--ease-standard);
+  }
+  .chip:hover { background: var(--color-border-subtle); }
+
+  /* === DataBlock === */
+  .data {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: var(--font-sm);
+  }
+  .data-delta-up { color: var(--color-success-fg); }
+  .data-delta-down { color: var(--color-danger-fg); }
+
+  /* === AgentMessage / UserMessage === */
+  .chat-stream {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    padding: var(--space-5);
+  }
+  .msg-agent {
+    background: var(--color-surface-agent);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-md);
+    padding: var(--space-4) var(--space-5);
+    max-width: 85%;
+    align-self: flex-start;
+    line-height: 1.5;
+    font-size: var(--font-base);
+    color: var(--color-text-default);
+  }
+  .msg-user {
+    background: var(--color-primary-50);
+    color: var(--color-primary-900);
+    border-radius: var(--radius-md);
+    padding: var(--space-3) var(--space-4);
+    max-width: 75%;
+    align-self: flex-end;
+    font-size: var(--font-base);
+    line-height: 1.5;
+  }
+  [data-theme="dark"] .msg-user {
+    background: var(--color-primary-800);
+    color: var(--color-primary-100);
+  }
+
+  .stream-cursor {
+    display: inline-block;
+    width: 2px;
+    height: 1em;
+    background: var(--color-text-default);
+    vertical-align: text-bottom;
+    margin-left: 2px;
+    animation: blink 800ms linear infinite;
+  }
+  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.2; } }
+
+  /* === Wizard === */
+  .wizard {
+    padding: var(--space-6) var(--space-5);
+  }
+  .wizard-stepper {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-8);
+  }
+  .step-dot {
+    width: 8px; height: 8px;
+    border-radius: var(--radius-full);
+    background: var(--color-border-default);
+  }
+  .step-dot.completed { background: var(--color-action-primary); }
+  .step-dot.current { background: var(--color-action-primary); width: 24px; height: 8px; border-radius: var(--radius-full); }
+
+  .wizard-eyebrow {
+    font-family: var(--font-mono);
+    font-size: var(--font-xs);
+    color: var(--color-text-subtle);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin: 0 0 var(--space-3) 0;
+  }
+  .wizard-title {
+    font-size: var(--font-display-sm);
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+    margin: 0 0 var(--space-3) 0;
+    color: var(--color-text-default);
+  }
+  .wizard-desc {
+    font-size: var(--font-base);
+    color: var(--color-text-muted);
+    line-height: 1.5;
+    margin: 0 0 var(--space-6) 0;
+  }
+  .wizard-field {
+    margin-bottom: var(--space-5);
+  }
+  .wizard-label {
+    display: block;
+    font-size: var(--font-sm);
+    font-weight: 500;
+    color: var(--color-text-muted);
+    margin-bottom: var(--space-2);
+  }
+  .input, .textarea {
+    width: 100%;
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface-base);
+    color: var(--color-text-default);
+    font-family: var(--font-text);
+    font-size: var(--font-base);
+    line-height: 1.5;
+    outline: none;
+    transition: border-color var(--duration-fast) var(--ease-standard);
+  }
+  .input:focus, .textarea:focus {
+    border-color: var(--color-action-primary);
+  }
+  .textarea { min-height: 80px; resize: vertical; }
+
+  .anchor-coach {
+    margin-top: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-info-subtle-bg);
+    border-left: 2px solid var(--color-info-fg);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-sm);
+    color: var(--color-text-default);
+    display: flex;
+    gap: var(--space-3);
+  }
+  [data-theme="dark"] .anchor-coach {
+    background: rgba(14, 116, 144, 0.15);
+  }
+  .anchor-coach.approving {
+    background: var(--color-success-subtle-bg);
+    border-left-color: var(--color-success-fg);
+  }
+  [data-theme="dark"] .anchor-coach.approving {
+    background: rgba(5, 150, 105, 0.15);
+  }
+  .anchor-coach-icon {
+    flex-shrink: 0;
+    width: 16px;
+    margin-top: 2px;
+    color: var(--color-info-fg);
+  }
+  .anchor-coach.approving .anchor-coach-icon { color: var(--color-success-fg); }
+
+  .wizard-footer {
+    margin-top: var(--space-8);
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-3);
+  }
+
+  /* === Slip Recovery modal === */
+  .modal-frame {
+    margin: 0 auto;
+    width: 100%;
+    max-width: 480px;
+    background: var(--color-surface-overlay);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl);
+    border: 1px solid var(--color-border-subtle);
+    overflow: hidden;
+    position: relative;
+  }
+  .modal-backdrop {
+    background: rgba(14,14,12,0.4);
+    padding: var(--space-12) var(--space-5);
+    border-radius: var(--radius-lg);
+  }
+  .modal-body {
+    padding: var(--space-6);
+  }
+  .modal-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-4);
+  }
+  .modal-title {
+    font-size: var(--font-xl);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+    margin: 0 0 var(--space-3) 0;
+    color: var(--color-text-default);
+  }
+  .modal-prose {
+    font-size: var(--font-base);
+    color: var(--color-text-muted);
+    line-height: 1.5;
+    margin: 0 0 var(--space-5) 0;
+  }
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-3);
+    margin-top: var(--space-6);
+    padding-top: var(--space-5);
+    border-top: 1px solid var(--color-border-subtle);
+  }
+
+  /* === Composer === */
+  .composer {
+    border-top: 1px solid var(--color-border-subtle);
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-surface-base);
+    display: flex;
+    gap: var(--space-2);
+    align-items: flex-end;
+  }
+  .composer textarea {
+    flex: 1;
+    min-height: 40px;
+    max-height: 120px;
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-md);
+    background: var(--color-surface-sunken);
+    font-family: var(--font-text);
+    font-size: var(--font-base);
+    color: var(--color-text-default);
+    resize: none;
+    outline: none;
+  }
+  .composer textarea:focus { border-color: var(--color-action-primary); }
+  .icon-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: var(--color-action-primary);
+    color: var(--color-text-on-brand);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .icon-btn:hover { background: var(--color-action-primary-hover); }
+
+  /* Bottom sheet header */
+  .sheet-handle {
+    width: 36px;
+    height: 4px;
+    background: var(--color-border-default);
+    border-radius: var(--radius-full);
+    margin: var(--space-3) auto var(--space-2);
+  }
+  .sheet-header {
+    padding: var(--space-2) var(--space-5) var(--space-4);
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+  .sheet-title {
+    font-size: var(--font-lg);
+    font-weight: 600;
+    color: var(--color-text-default);
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  .sheet-subtitle {
+    font-family: var(--font-mono);
+    font-size: var(--font-xs);
+    color: var(--color-text-subtle);
+    margin: 4px 0 0 0;
+  }
+
+  /* === Annotation === */
+  .annotation {
+    font-family: var(--font-mono);
+    font-size: var(--font-xs);
+    color: var(--color-text-subtle);
+    text-align: center;
+    margin-top: var(--space-3);
+    letter-spacing: 0.04em;
+  }
+
+  /* === Tokens swatch grid === */
+  .swatches {
+    display: grid;
+    grid-template-columns: repeat(11, 1fr);
+    gap: 2px;
+    margin-bottom: var(--space-6);
+  }
+  .swatch {
+    aspect-ratio: 1;
+    border-radius: var(--radius-xs);
+    position: relative;
+  }
+  .swatch::after {
+    content: attr(data-label);
+    position: absolute;
+    bottom: 4px;
+    left: 4px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: rgba(255,255,255,0.7);
+    mix-blend-mode: difference;
+  }
+
+  .palette-label {
+    font-family: var(--font-mono);
+    font-size: var(--font-xs);
+    color: var(--color-text-subtle);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: var(--space-2);
+  }
+</style>
+</head>
+<body data-theme="light">
+
+<div class="page">
+
+  <header class="page-header">
+    <div>
+      <p class="page-eyebrow">Design system — visual preview · v1.0.0</p>
+      <h1 class="page-title">Leveld Agent</h1>
+      <p class="page-sub">The calm clinical surface inside a gamified app. Six purpose-built moments, designed as deliberate counter-surfaces to the celebratory parts of Leveld.</p>
+    </div>
+    <button class="theme-toggle" onclick="toggleTheme()">
+      <span id="theme-icon">◐</span>
+      <span id="theme-label">Switch to dark</span>
+    </button>
+  </header>
+
+  <!-- ============================================ -->
+  <!-- 1. DAILY BRIEF — InsightCard on dashboard -->
+  <!-- ============================================ -->
+  <section class="section">
+    <div class="section-label">
+      <span class="section-label-num">01</span>
+      <span class="section-label-title">Daily Brief</span>
+      <span class="section-divider"></span>
+      <span class="section-label-meta">surface · dashboard · daily</span>
+    </div>
+
+    <div class="surface-grid two-up">
+      <div>
+        <div data-theme-scope class="insight-card">
+          <div class="insight-header">
+            <span class="agent-avatar">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3L4 7v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V7l-8-4z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+            </span>
+            <span class="agent-label">Agent</span>
+            <span class="agent-time">MON · 07:14</span>
+          </div>
+          <div class="insight-body">
+            You're on a <code>6-day</code> streak across strength and meditation. Energy notes have trended "tired" on Tuesday and Thursday — both your cardio days. Consider moving cardio earlier or eating before. Today is a strength + brain-dump + worry-window day. Get the brain-dump done first.
+          </div>
+          <div class="insight-actions">
+            <button class="btn btn-secondary btn-sm">Open habits</button>
+            <button class="btn btn-ghost btn-sm">Dismiss</button>
+          </div>
+        </div>
+        <p class="annotation">InsightCard · brief variant</p>
+      </div>
+
+      <div>
+        <div class="insight-card nudge">
+          <div class="insight-header">
+            <span class="agent-avatar">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3L4 7v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V7l-8-4z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+            </span>
+            <span class="agent-label">Pattern surface</span>
+            <span class="agent-time">WED · 16:02</span>
+          </div>
+          <div class="insight-body">
+            Your completion rate on days you log a brain-dump note containing "foggy" is <code>40%</code>. On other days, <code>84%</code>. Sleep before foggy mornings averages <code>6.2h</code>.
+          </div>
+          <div class="insight-actions">
+            <button class="btn btn-secondary btn-sm">Show me how to act on this</button>
+          </div>
+        </div>
+        <p class="annotation">InsightCard · pattern variant · accent border</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================ -->
+  <!-- 2. SETUP WIZARD -->
+  <!-- ============================================ -->
+  <section class="section">
+    <div class="section-label">
+      <span class="section-label-num">02</span>
+      <span class="section-label-title">Setup Wizard — step 3 of 5</span>
+      <span class="section-divider"></span>
+      <span class="section-label-meta">surface · onboarding · full-screen</span>
+    </div>
+
+    <div class="phone-frame">
+      <div class="phone-status">
+        <span>9:41</span>
+        <div class="right"><span>5G</span><span>●●●</span></div>
+      </div>
+      <div class="phone-body">
+        <div class="wizard">
+          <div class="wizard-stepper" role="list">
+            <div class="step-dot completed"></div>
+            <div class="step-dot completed"></div>
+            <div class="step-dot current"></div>
+            <div class="step-dot"></div>
+            <div class="step-dot"></div>
+          </div>
+
+          <p class="wizard-eyebrow">Step 03 / 05</p>
+          <h2 class="wizard-title">Anchor your first habit</h2>
+          <p class="wizard-desc">When and where will this happen? Specific anchors roughly double follow-through.</p>
+
+          <div class="wizard-field">
+            <label class="wizard-label">Habit</label>
+            <input class="input" value="10-min meditation" readonly />
+          </div>
+
+          <div class="wizard-field">
+            <label class="wizard-label">Trigger</label>
+            <input class="input" value="after morning brain dump" />
+            <div class="anchor-coach approving">
+              <svg class="anchor-coach-icon" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span>Good anchor. Pairs with a habit you've already committed to, which is the strongest form.</span>
+            </div>
+          </div>
+
+          <div class="wizard-field">
+            <label class="wizard-label">Location</label>
+            <input class="input" value="kitchen" />
+            <div class="anchor-coach">
+              <svg class="anchor-coach-icon" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><path d="M12 8v4M12 16h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              <span>"Kitchen" is broad. Try "kitchen counter, same stool" — physical specificity matters.</span>
+            </div>
+          </div>
+
+          <div class="wizard-footer">
+            <button class="btn btn-secondary">Back</button>
+            <button class="btn btn-primary">Continue</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="annotation" style="margin-top: var(--space-5)">WizardStepHeader · TextField · AnchorCoachPanel · WizardStepper · Button</p>
+  </section>
+
+  <!-- ============================================ -->
+  <!-- 3. SLIP RECOVERY MODAL -->
+  <!-- ============================================ -->
+  <section class="section">
+    <div class="section-label">
+      <span class="section-label-num">03</span>
+      <span class="section-label-title">Slip Recovery</span>
+      <span class="section-divider"></span>
+      <span class="section-label-meta">surface · triggered · modal</span>
+    </div>
+
+    <div class="modal-backdrop" style="background: linear-gradient(180deg, rgba(14,14,12,0.05) 0%, rgba(14,14,12,0.2) 100%); border-radius: var(--radius-lg);">
+      <div class="modal-frame">
+        <div class="modal-body">
+          <div class="modal-eyebrow">
+            <span class="agent-avatar">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3L4 7v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V7l-8-4z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+            </span>
+            <span class="agent-label">Agent</span>
+            <span class="agent-time" style="margin-left: auto">SAT · 09:22</span>
+          </div>
+
+          <h2 class="modal-title">You missed two days of strength training</h2>
+          <p class="modal-prose">Streaks break. What got in the way? One sentence — I want to know whether to suggest an anchor adjustment, lighten the load this week, or just hand you the comeback bonus and move on.</p>
+
+          <textarea class="textarea" placeholder="The gym felt heavy after work. I went home both days..."></textarea>
+
+          <div class="modal-footer">
+            <button class="btn btn-ghost">Skip</button>
+            <button class="btn btn-primary">Send to Agent</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="annotation" style="margin-top: var(--space-5)">Modal · slip-recovery variant · AgentAvatar · Textarea · Button</p>
+  </section>
+
+  <!-- ============================================ -->
+  <!-- 4. SUNDAY REFLECTION CHAT -->
+  <!-- ============================================ -->
+  <section class="section">
+    <div class="section-label">
+      <span class="section-label-num">04</span>
+      <span class="section-label-title">Sunday Reflection</span>
+      <span class="section-divider"></span>
+      <span class="section-label-meta">surface · weekly · bottom sheet</span>
+    </div>
+
+    <div class="phone-frame">
+      <div class="phone-status">
+        <span>20:14</span>
+        <div class="right"><span>5G</span><span>●●●</span></div>
+      </div>
+      <div class="phone-body" style="display: flex; flex-direction: column;">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <h3 class="sheet-title">Weekly reflection</h3>
+          <p class="sheet-subtitle">SUN 25 MAY · WEEK 21</p>
+        </div>
+
+        <div class="chat-stream" style="flex: 1;">
+          <div class="msg-agent">
+            Hey. Before we look at the data, just type — what one thing about this week is sitting with you most?
+          </div>
+
+          <div class="msg-user">
+            Honestly the cardio days. I keep skipping them and feeling bad. The strength stuff is fine.
+          </div>
+
+          <div class="msg-agent">
+            Got it. Your completion grid agrees — strength <span class="data data-delta-up">100%</span>, cardio <span class="data data-delta-down">50%</span>. Two questions before we move on. Are the cardio days at a time that's working, and is the gym actually closer to home or work?<span class="stream-cursor"></span>
+          </div>
+
+          <div style="display: flex; gap: var(--space-2); flex-wrap: wrap; padding: 0 var(--space-2);">
+            <button class="chip">Move them earlier</button>
+            <button class="chip">Switch to home cardio</button>
+            <button class="chip">Drop one cardio day</button>
+          </div>
+        </div>
+
+        <div class="composer">
+          <textarea placeholder="Type a reply..." rows="1"></textarea>
+          <button class="icon-btn" aria-label="Send">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13M22 2L15 22l-4-9L2 9l20-7z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+    <p class="annotation" style="margin-top: var(--space-5)">BottomSheet · AgentMessage · UserMessage · DataBlock · AgentStreamCursor · SuggestionChip · AgentComposer</p>
+  </section>
+
+  <!-- ============================================ -->
+  <!-- 5. TOKEN SWATCHES -->
+  <!-- ============================================ -->
+  <section class="section">
+    <div class="section-label">
+      <span class="section-label-num">05</span>
+      <span class="section-label-title">Color tokens</span>
+      <span class="section-divider"></span>
+      <span class="section-label-meta">primitives</span>
+    </div>
+
+    <p class="palette-label">Primary · deep slate-indigo</p>
+    <div class="swatches">
+      <div class="swatch" style="background: #F0F1FE" data-label="50"></div>
+      <div class="swatch" style="background: #E0E3FC" data-label="100"></div>
+      <div class="swatch" style="background: #C5CAFA" data-label="200"></div>
+      <div class="swatch" style="background: #A1A8F5" data-label="300"></div>
+      <div class="swatch" style="background: #7B82EE" data-label="400"></div>
+      <div class="swatch" style="background: #5C61E0" data-label="500"></div>
+      <div class="swatch" style="background: #4338CA" data-label="600"></div>
+      <div class="swatch" style="background: #3730A3" data-label="700"></div>
+      <div class="swatch" style="background: #2E2A80" data-label="800"></div>
+      <div class="swatch" style="background: #1E1B4B" data-label="900"></div>
+      <div class="swatch" style="background: #100F2B" data-label="950"></div>
+    </div>
+
+    <p class="palette-label">Neutral · warm</p>
+    <div class="swatches">
+      <div class="swatch" style="background: #FAFAF8" data-label="50"></div>
+      <div class="swatch" style="background: #F4F4F0" data-label="100"></div>
+      <div class="swatch" style="background: #E8E8E1" data-label="200"></div>
+      <div class="swatch" style="background: #D4D4CB" data-label="300"></div>
+      <div class="swatch" style="background: #B0B0A4" data-label="400"></div>
+      <div class="swatch" style="background: #8A8A7C" data-label="500"></div>
+      <div class="swatch" style="background: #65655A" data-label="600"></div>
+      <div class="swatch" style="background: #4A4A42" data-label="700"></div>
+      <div class="swatch" style="background: #2E2E29" data-label="800"></div>
+      <div class="swatch" style="background: #1A1A17" data-label="900"></div>
+      <div class="swatch" style="background: #0E0E0C" data-label="950"></div>
+    </div>
+
+    <p class="annotation" style="margin-top: var(--space-3)">Two scales carry the entire system. The 600 step is the workhorse for actions; the 950 step is dark-mode base.</p>
+  </section>
+
+</div>
+
+<script>
+  function toggleTheme() {
+    const cur = document.body.getAttribute('data-theme');
+    const next = cur === 'light' ? 'dark' : 'light';
+    document.body.setAttribute('data-theme', next);
+    document.getElementById('theme-label').textContent = next === 'light' ? 'Switch to dark' : 'Switch to light';
+    document.getElementById('theme-icon').textContent = next === 'light' ? '◐' : '◑';
+  }
+</script>
+
+</body>
+</html>

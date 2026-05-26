@@ -2,11 +2,11 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db, googleProvider } from "./firebase";
-import { getOverallScore, getRank, mkDefault, genId, mkLevel, todayStr, applyResilienceDecay, calcHabitXP, calcBaseXP, getDailyCatXP, getThisWeekCount, getPrevWeekCount, canEditGoal } from "./utils";
+import { getOverallScore, getRank, mkDefault, genId, mkLevel, todayStr, applyResilienceDecay, calcHabitXP, calcBaseXP, getDailyCatXP, getThisWeekCount, getPrevWeekCount, canEditGoal, getWeeklyVotes, isCheckinDue } from "./utils";
 import { RANKS, CATEGORIES, DAILY_XP_CAP } from "./constants";
 import { S } from "./styles";
 import LoginScreen from "./components/LoginScreen";
-import SetupScreen from "./components/SetupScreen";
+import SetupWizard from "./components/SetupWizard";
 import Sidebar from "./components/Sidebar";
 import RankPanel from "./components/RankPanel";
 import Dashboard from "./components/Dashboard";
@@ -185,6 +185,16 @@ export default function App() {
   function addGoal(goal) {
     updLv({ goals: [...currentLevel.goals, { ...goal, id: genId(), completions: [] }] });
     notify("Goal added");
+  }
+
+  // Batched append — needed for the Agent suggestion modal which adds many at
+  // once. Calling addGoal in a loop would re-read the same currentLevel.goals
+  // snapshot each time and drop all but the last addition.
+  function addGoals(goals) {
+    if (!goals?.length) return;
+    const stamped = goals.map(g => ({ ...g, id: genId(), completions: g.completions || [] }));
+    updLv({ goals: [...currentLevel.goals, ...stamped] });
+    notify(`${stamped.length} goal${stamped.length === 1 ? "" : "s"} added`);
   }
 
   function deleteGoal(id) {
@@ -415,6 +425,17 @@ export default function App() {
     if (navigator.vibrate) navigator.vibrate([20, 50, 20]);
   }
 
+  function completeWeeklyCheckin(updatedStatements) {
+    updLv({ categoryGoals: updatedStatements });
+    setState(s => ({ ...s, lastWeeklyCheckin: new Date().toISOString() }));
+    notify("Check-in saved");
+  }
+
+  function skipWeeklyCheckin() {
+    setState(s => ({ ...s, lastWeeklyCheckin: new Date().toISOString() }));
+    notify("Skipped — see you next week");
+  }
+
   function advanceLevel() {
     const newLv = mkLevel(state.levels.length + 1);
     setState(s => ({
@@ -449,7 +470,7 @@ export default function App() {
   const overallRank   = getRank(overallScore);
   const levelComplete = RANKS.indexOf(overallRank) >= RANKS.indexOf(currentLevel.requiredRank || "A");
 
-  if (!state.setupDone) return <SetupScreen level={currentLevel} onFinish={finishSetup} />;
+  if (!state.setupDone) return <SetupWizard level={currentLevel} onFinish={finishSetup} />;
 
   const sidebarProps = {
     view, setView,
@@ -458,6 +479,8 @@ export default function App() {
     user,
     onSignOut: handleSignOut,
     onReset: handleReset,
+    aiAgentEnabled: state.aiAgentEnabled === true,
+    onToggleAgent: () => setState(s => ({ ...s, aiAgentEnabled: !s.aiAgentEnabled })),
   };
 
   const pages = (
@@ -475,6 +498,10 @@ export default function App() {
           onResistQuit={resistQuitHabit}
           onSuccumbQuit={succumbQuitHabit}
           onGoToGoals={() => setView("goals")}
+          checkinDue={isCheckinDue(state, currentLevel)}
+          weeklyVotes={getWeeklyVotes(currentLevel)}
+          onCompleteCheckin={completeWeeklyCheckin}
+          onSkipCheckin={skipWeeklyCheckin}
         />
       )}
       {view === "goals" && (
@@ -482,6 +509,7 @@ export default function App() {
           level={currentLevel}
           state={state}
           onAddGoal={addGoal}
+          onAddGoals={addGoals}
           onDeleteGoal={deleteGoal}
           onEditGoal={editGoal}
           editingGoalId={editingGoalId}
@@ -494,6 +522,7 @@ export default function App() {
           setAddOpen={setAddOpen}
           addType={addType}
           setAddType={setAddType}
+          aiAgentEnabled={state.aiAgentEnabled === true}
         />
       )}
       {view === "reports" && <ReportsView state={state} />}

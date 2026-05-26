@@ -1,7 +1,6 @@
 import { RANKS, RANK_COLOR, RANK_THRESHOLDS, CAT_META, USER_CATEGORIES } from "../constants";
 import { getRankPct, getNextThresh } from "../utils";
 import { S } from "../styles";
-import RadarChart from "./RadarChart";
 
 const DISPLAY = [...RANKS].reverse(); // S at top, E at bottom
 
@@ -35,16 +34,6 @@ export default function RankPanel({ overallScore, overallRank, catScores, catRan
       overflowY: "auto",
       gap: 0,
     }}>
-
-      {/* ── Radar Chart ──────────────────────────────────────────────── */}
-      <div style={{ textAlign: "center", marginBottom: 14 }}>
-        <p style={{ ...S.panelLbl, textAlign: "center", marginBottom: 10 }}>BALANCE</p>
-        <div style={{ display: "flex", justifyContent: "center" }}>
-          <RadarChart catScores={catScores} size={128} />
-        </div>
-      </div>
-
-      <div style={{ height: 1, background: "var(--border)", marginBottom: 14 }} />
 
       {/* ── Rank Ladder ──────────────────────────────────────────────── */}
       <p style={{ ...S.panelLbl, textAlign: "center", marginBottom: 14 }}>RANK PATH</p>

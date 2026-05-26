@@ -1,4 +1,8 @@
 {
+  "rewrites": [
+    { "source": "/.well-known/oauth-authorization-server", "destination": "/api/oauth/wellknown" },
+    { "source": "/.well-known/oauth-protected-resource",   "destination": "/api/oauth/wellknown" }
+  ],
   "headers": [
     {
       "source": "/sw.js",

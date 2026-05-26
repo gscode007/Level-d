@@ -42,19 +42,37 @@ function sha256(s) {
   return crypto.createHash("sha256").update(s).digest("hex");
 }
 
+// Accepts two token shapes:
+//   lvld_…   – static per-user API key (apiKeys collection, for Claude Desktop / custom clients)
+//   lvldo_…  – OAuth 2.1 access token issued via /api/oauth/token (oauthAccessTokens collection)
+// claude.ai's custom-connector UI only does OAuth, so the lvldo_ path is the
+// one that's actually used from the web app.
 async function authenticate(req) {
   const auth = req.headers["authorization"] || req.headers["Authorization"];
   if (!auth || !auth.startsWith("Bearer ")) return null;
   const token = auth.slice(7).trim();
-  if (!token.startsWith("lvld_")) return null;
   const hash = sha256(token);
-  const snap = await db().doc(`apiKeys/${hash}`).get();
-  if (!snap.exists) return null;
-  const { uid } = snap.data();
-  if (!uid) return null;
-  // Best-effort last-used stamp (don't await, don't fail the request if it errors)
-  db().doc(`apiKeys/${hash}`).update({ lastUsed: admin.firestore.FieldValue.serverTimestamp() }).catch(() => {});
-  return uid;
+
+  if (token.startsWith("lvld_")) {
+    const snap = await db().doc(`apiKeys/${hash}`).get();
+    if (!snap.exists) return null;
+    const { uid } = snap.data();
+    if (!uid) return null;
+    db().doc(`apiKeys/${hash}`).update({ lastUsed: admin.firestore.FieldValue.serverTimestamp() }).catch(() => {});
+    return uid;
+  }
+
+  if (token.startsWith("lvldo_")) {
+    const snap = await db().doc(`oauthAccessTokens/${hash}`).get();
+    if (!snap.exists) return null;
+    const data = snap.data();
+    if (!data.uid) return null;
+    if (data.expiresAt && data.expiresAt.toMillis() < Date.now()) return null;
+    db().doc(`oauthAccessTokens/${hash}`).update({ lastUsed: admin.firestore.FieldValue.serverTimestamp() }).catch(() => {});
+    return data.uid;
+  }
+
+  return null;
 }
 
 // ── Domain helpers (mirror src/utils.js + src/constants.js) ─────────────────

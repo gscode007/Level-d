@@ -2,13 +2,15 @@
 
 Tracked here so they don't get lost in commit messages.
 
+## Done
+
+- [x] **OAuth 2.1 + Dynamic Client Registration for the MCP server.** Implemented in `api/oauth/*` and `src/components/OAuthAuthorize.jsx`. claude.ai's custom-connector UI auto-discovers `/.well-known/oauth-authorization-server`, registers itself via `/api/oauth/register`, sends the user to `/oauth/authorize` for approval, and exchanges the code for an `lvldo_…` access token at `/api/oauth/token`. `api/mcp.js` accepts both `lvld_` (static API keys, for stdio clients) and `lvldo_` (OAuth) bearer tokens.
+
 ## Before letting anyone else use this
 
-- [ ] **MCP server: replace API-key auth with OAuth 2.0 Authorization Code + PKCE.**
-  - **What's there now:** `api/mcp.js` validates requests via per-user API keys (`Authorization: Bearer lvld_…`) stored as SHA-256 hashes in Firestore at `apiKeys/{hash}`. Acceptable for personal use (one Anthropic account, one Firestore user, you trust where the key lives).
-  - **Why it fails at scale:** every non-technical user would need to manually copy/paste API keys into claude.ai. Keys can't be scoped to specific tools, can't expire automatically, and revocation is all-or-nothing. Anthropic's connector marketplace expects OAuth.
-  - **What replaces it:** standard OAuth 2.1 flow — Level-d hosts `/authorize` + `/token` endpoints, returns short-lived access tokens, refresh tokens for renewal, scopes per tool. Then list Level-d in claude.ai's connector directory.
-  - **Trigger this when:** more than ~3 users, OR before any public/marketing mention of the connector.
+- [ ] **OAuth refresh tokens.** Access tokens currently live 90 days with no refresh path. claude.ai will silently break when they expire; user has to remove + re-add the connector. Add `grant_type=refresh_token` to `/api/oauth/token` and shorten access-token TTL to ~1h once refresh works.
+- [ ] **OAuth scopes.** All tokens currently get full `mcp` scope (read + write everything). Split into `mcp.read` and `mcp.write` so users can mint read-only tokens.
+- [ ] **Token revocation endpoint** (`/api/oauth/revoke`, RFC 7009). Right now revoking a connector requires deleting the row from Firestore by hand.
 
 ## Other known gaps
 

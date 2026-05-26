@@ -6,6 +6,7 @@ import { getOverallScore, getRank, mkDefault, genId, mkLevel, todayStr, applyRes
 import { RANKS, CATEGORIES, DAILY_XP_CAP } from "./constants";
 import { S } from "./styles";
 import LoginScreen from "./components/LoginScreen";
+import OAuthAuthorize from "./components/OAuthAuthorize";
 import SetupWizard from "./components/SetupWizard";
 import Sidebar from "./components/Sidebar";
 import RankPanel from "./components/RankPanel";
@@ -456,7 +457,14 @@ export default function App() {
 
   // ── Render states ──────────────────────────────────────────────────────────
 
+  // OAuth authorize page is its own world — it doesn't need the user's
+  // habit data, just their auth state. Render it directly so we skip the
+  // SetupWizard / data-loading paths below.
+  const isOAuthAuthorize = typeof window !== "undefined" && window.location.pathname === "/oauth/authorize";
   if (user === undefined) return <Spinner />;
+  if (isOAuthAuthorize) {
+    return <OAuthAuthorize user={user} onSignIn={handleSignIn} signInError={authError} />;
+  }
   if (user === null)      return <LoginScreen onSignIn={handleSignIn} error={authError} />;
   if (loadError && !dataLoading) return (
     <LoadErrorScreen

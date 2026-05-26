@@ -76,11 +76,15 @@ async function authenticate(req) {
 }
 
 // ── Domain helpers (mirror src/utils.js + src/constants.js) ─────────────────
-const USER_CATEGORIES   = ["Emotional", "Intellectual", "Physical", "Creational", "Self-Care"];
-const HABIT_TEMPLATES   = ["Basic", "Standard", "Intensive", "Precision"];
-const DIFFICULTIES      = ["Easy", "Medium", "Hard"];
-const FREQUENCIES       = [2, 3, 4, 5, 6, 7];
-const WEEKLY_MS         = 7 * 24 * 60 * 60 * 1000;
+const USER_CATEGORIES     = ["Emotional", "Intellectual", "Physical", "Creational", "Self-Care"];
+const ALL_CATEGORIES      = [...USER_CATEGORIES, "Resilience"];
+const HABIT_TEMPLATES     = ["Basic", "Standard", "Intensive", "Precision"];
+const MILESTONE_TEMPLATES = ["Completion", "Consistency", "Performance", "Control", "Transformation"];
+const DIFFICULTIES        = ["Easy", "Medium", "Hard"];
+const FREQUENCIES         = [2, 3, 4, 5, 6, 7];
+const RANKS               = ["E", "D", "C", "B", "A", "S"];
+const WEEKLY_MS           = 7 * 24 * 60 * 60 * 1000;
+const EDIT_WINDOW_MS      = 3 * 24 * 60 * 60 * 1000; // mirrors INITIAL_EDIT_WINDOW_MS
 
 function genId() {
   return Math.random().toString(36).slice(2, 10);
@@ -149,6 +153,90 @@ const TOOLS = [
       required: ["goalId"],
       properties: {
         goalId: { type: "string", description: "The goal's id, as returned by list_goals." },
+      },
+    },
+  },
+  {
+    name: "update_chapter",
+    description: "Patches the current chapter's setup (title, identity statements, weights, required rank). Partial updates allowed — pass only the fields you want to change. Use markSetupComplete=true to also dismiss the SetupWizard (useful when filling in setup for a brand new user). The Level-d browser tab does not auto-refresh; the user must reload to see changes.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "Chapter name (e.g. 'Building the Foundation')." },
+        categoryGoals: {
+          type: "object",
+          description: "Identity statement per dimension. Partial OK — only listed dimensions are updated. Keys must be from USER_CATEGORIES.",
+          additionalProperties: { type: "string" },
+        },
+        weights: {
+          type: "object",
+          description: "Weight % per dimension. If provided, MUST include all 5 USER_CATEGORIES and the integers MUST sum to exactly 100. Resilience is always 0.",
+          additionalProperties: { type: "integer", minimum: 0, maximum: 100 },
+        },
+        requiredRank: { type: "string", enum: RANKS, description: "Rank to reach to complete this chapter." },
+        markSetupComplete: { type: "boolean", description: "Set setupDone=true after patching. Use this when finishing initial setup so the user doesn't see the wizard again." },
+      },
+    },
+  },
+  {
+    name: "advance_level",
+    description: "Creates a new chapter (the next level). Resets per-chapter scores, streaks, and completions, but preserves history (the prior level stays in state.levels). If you provide ALL of title, categoryGoals, weights, and requiredRank, setupDone is automatically marked true so the user can start tracking immediately. Otherwise the SetupWizard will show on next app load. The browser tab does not auto-refresh.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "Chapter name for the new level." },
+        categoryGoals: {
+          type: "object",
+          description: "Identity statement per USER_CATEGORY dimension.",
+          additionalProperties: { type: "string" },
+        },
+        weights: {
+          type: "object",
+          description: "Weight % per dimension. If provided, MUST include all 5 USER_CATEGORIES and sum to 100.",
+          additionalProperties: { type: "integer", minimum: 0, maximum: 100 },
+        },
+        requiredRank: { type: "string", enum: RANKS },
+      },
+    },
+  },
+  {
+    name: "update_goal",
+    description: "Edits an existing goal (habit, milestone, or quit-habit). Use list_goals first to get the goalId. Partial updates allowed. Structural fields (name, template, difficulty, frequency, identities, category, milestoneSteps) may be locked outside the first 3 days of a level for goals that were created during initial setup — anchor/notes/ifThenFallback are always editable. Tool returns an error listing any locked fields rather than silently dropping them.",
+    inputSchema: {
+      type: "object",
+      required: ["goalId"],
+      properties: {
+        goalId:     { type: "string", description: "The goal's id (from list_goals)." },
+        name:       { type: "string", description: "Short verb-led name, under 8 words." },
+        category:   { type: "string", enum: USER_CATEGORIES, description: "Primary dimension. Not editable for quitHabit (always Resilience)." },
+        template:   { type: "string", description: "For habitual/quitHabit: one of HABIT_TEMPLATES (Basic/Standard/Intensive/Precision). For milestone: one of MILESTONE_TEMPLATES (Completion/Consistency/Performance/Control/Transformation)." },
+        difficulty: { type: "string", enum: DIFFICULTIES },
+        frequency:  { type: "integer", enum: FREQUENCIES, description: "Times per week. Only valid for habitual / quitHabit." },
+        identities: { type: "array", items: { type: "string", enum: USER_CATEGORIES }, description: "Habitual only: list of identities this habit votes for (full list including primary; null/empty clears multi-identity)." },
+        milestoneSteps: {
+          type: "array",
+          description: "Milestone only: replace the full step list. Each step is { name, completed? }.",
+          items: {
+            type: "object",
+            required: ["name"],
+            properties: {
+              name: { type: "string" },
+              completed: { type: "boolean", description: "Default false. Set true to mark done." },
+            },
+          },
+        },
+        anchor: {
+          type: "object",
+          description: "Implementation-intention anchor (cue/location/action/prep). Patches partially — fields you omit keep their existing value. Always editable.",
+          properties: {
+            cue:      { type: "string", description: "Trigger ('after morning coffee')." },
+            location: { type: "string", description: "Where the action happens." },
+            action:   { type: "string", description: "Concrete action ('5-min brain dump in gray notebook')." },
+            prep:     { type: "string", description: "Optional prep step." },
+          },
+        },
+        notes:          { type: "string", description: "Free-text notes. Pass empty string to clear. Always editable." },
+        ifThenFallback: { type: "string", description: "Coping intention for failure case ('If I miss morning coffee, then I will...'). Always editable." },
       },
     },
   },
@@ -302,12 +390,286 @@ async function toolCompleteHabit(uid, args) {
   return { ok: true, streak: newStreak, completedAt: ts, note: "XP and Resilience updates land when the user next opens the app." };
 }
 
+// Validation shared by update_chapter and advance_level
+function validateChapterPatch(args) {
+  const errors = [];
+  if (args.title !== undefined && (typeof args.title !== "string" || args.title.length > 120)) {
+    errors.push("title must be a string under 120 chars");
+  }
+  if (args.requiredRank !== undefined && !RANKS.includes(args.requiredRank)) {
+    errors.push(`requiredRank must be one of ${RANKS.join(", ")}`);
+  }
+  if (args.categoryGoals !== undefined) {
+    if (typeof args.categoryGoals !== "object" || args.categoryGoals === null) {
+      errors.push("categoryGoals must be an object");
+    } else {
+      for (const k of Object.keys(args.categoryGoals)) {
+        if (!USER_CATEGORIES.includes(k)) errors.push(`categoryGoals key "${k}" is not a valid dimension`);
+        if (typeof args.categoryGoals[k] !== "string") errors.push(`categoryGoals["${k}"] must be a string`);
+      }
+    }
+  }
+  if (args.weights !== undefined) {
+    if (typeof args.weights !== "object" || args.weights === null) {
+      errors.push("weights must be an object");
+    } else {
+      for (const c of USER_CATEGORIES) {
+        if (args.weights[c] === undefined) errors.push(`weights is missing "${c}" (all 5 USER_CATEGORIES required when weights is provided)`);
+      }
+      const extraKeys = Object.keys(args.weights).filter(k => !USER_CATEGORIES.includes(k) && k !== "Resilience");
+      if (extraKeys.length) errors.push(`weights has unknown keys: ${extraKeys.join(", ")}`);
+      const sum = USER_CATEGORIES.reduce((s, c) => s + (Number(args.weights[c]) || 0), 0);
+      if (sum !== 100) errors.push(`weights must sum to exactly 100 (got ${sum})`);
+    }
+  }
+  return errors;
+}
+
+// Builds a normalized weights object (always pins Resilience=0)
+function normalizeWeights(weightsArg) {
+  const w = { Resilience: 0 };
+  for (const c of USER_CATEGORIES) w[c] = Math.max(0, Math.min(100, Math.round(Number(weightsArg[c]))));
+  return w;
+}
+
+async function toolUpdateChapter(uid, args) {
+  if (!args || Object.keys(args).length === 0) throw new Error("No fields to update.");
+  const errors = validateChapterPatch(args);
+  if (errors.length) throw new Error(errors.join("; "));
+
+  const state = await loadUser(uid);
+  const lv = currentLevel(state);
+  if (!lv) throw new Error("No active chapter.");
+
+  const patch = {};
+  const updated = [];
+  if (args.title !== undefined)         { patch.title = args.title; updated.push("title"); }
+  if (args.categoryGoals !== undefined) { patch.categoryGoals = { ...(lv.categoryGoals || {}), ...args.categoryGoals }; updated.push("categoryGoals"); }
+  if (args.weights !== undefined)       { patch.weights = normalizeWeights(args.weights); updated.push("weights"); }
+  if (args.requiredRank !== undefined)  { patch.requiredRank = args.requiredRank; updated.push("requiredRank"); }
+
+  const newLevels = state.levels.map(l => l.id === lv.id ? { ...l, ...patch } : l);
+  const newState = { ...state, levels: newLevels };
+  if (args.markSetupComplete) {
+    newState.setupDone = true;
+    updated.push("setupDone");
+  }
+  await saveUser(uid, newState);
+
+  const updatedLevel = newLevels.find(l => l.id === lv.id);
+  return {
+    ok: true,
+    updated,
+    chapter: {
+      number: updatedLevel.num,
+      title: updatedLevel.title,
+      categoryGoals: updatedLevel.categoryGoals,
+      weights: updatedLevel.weights,
+      requiredRank: updatedLevel.requiredRank,
+    },
+    setupDone: newState.setupDone === true,
+    note: "User must reload the Level-d app to see changes — no real-time sync yet.",
+  };
+}
+
+async function toolAdvanceLevel(uid, args = {}) {
+  const errors = validateChapterPatch(args);
+  if (errors.length) throw new Error(errors.join("; "));
+
+  const state = await loadUser(uid);
+  const nextNum = (state.levels?.length || 0) + 1;
+
+  // Build the new level. mkLevel in src/utils.js does the same shape — kept
+  // inline here so this function has no client-bundle dependency.
+  const newLevel = {
+    id: genId(),
+    num: nextNum,
+    title: args.title || "",
+    categoryGoals: {
+      ...Object.fromEntries(ALL_CATEGORIES.map(c => [c, ""])),
+      ...(args.categoryGoals || {}),
+    },
+    weights: args.weights
+      ? normalizeWeights(args.weights)
+      : {
+          ...Object.fromEntries(USER_CATEGORIES.map(c => [c, Math.floor(100 / USER_CATEGORIES.length)])),
+          Resilience: 0,
+        },
+    requiredRank: args.requiredRank || "A",
+    goals: [],
+    startedAt: Date.now(),
+  };
+
+  // setupDone iff Claude supplied all four core fields — otherwise the user
+  // will see the wizard on next load so they can fill in the gaps.
+  const fullSetup = !!(args.title && args.categoryGoals && args.weights && args.requiredRank);
+
+  const newState = {
+    ...state,
+    levels: [...(state.levels || []), newLevel],
+    currentLevelId: newLevel.id,
+    setupDone: fullSetup,
+    catScores: Object.fromEntries(ALL_CATEGORIES.map(c => [c, 0])),
+    catRanks:  Object.fromEntries(ALL_CATEGORIES.map(c => [c, "E"])),
+    streaks: {},
+    lastCompletions: {},
+    lastHabitDate: null,
+    decayAppliedOn: null,
+    consecutiveMissed: 0,
+    dailyCatXP: {},
+    lastWeeklyCheckin: null,
+  };
+  await saveUser(uid, newState);
+
+  return {
+    ok: true,
+    levelNumber: nextNum,
+    setupDone: fullSetup,
+    chapter: {
+      title: newLevel.title,
+      categoryGoals: newLevel.categoryGoals,
+      weights: newLevel.weights,
+      requiredRank: newLevel.requiredRank,
+    },
+    note: fullSetup
+      ? "New chapter active and fully set up. User must reload Level-d to see it."
+      : "New chapter active but setup is incomplete — user will see the SetupWizard on next app load. Call update_chapter to fill in the remaining fields and pass markSetupComplete=true to skip the wizard.",
+  };
+}
+
+// Mirrors src/utils.js canEditGoal — structural fields lock 3 days after
+// level.startedAt for goals that were created during initial setup
+// (locked: true). User-added goals (no locked flag) are always editable.
+function canEditStructural(goal, level) {
+  if (!goal) return false;
+  if (!goal.locked) return true;
+  return Date.now() - (level?.startedAt || 0) < EDIT_WINDOW_MS;
+}
+
+async function toolUpdateGoal(uid, args) {
+  if (!args?.goalId) throw new Error("goalId is required");
+
+  const state = await loadUser(uid);
+  const lv = currentLevel(state);
+  if (!lv) throw new Error("No active chapter.");
+  const goalIdx = (lv.goals || []).findIndex(g => g.id === args.goalId);
+  if (goalIdx === -1) throw new Error(`No goal with id ${args.goalId}`);
+  const goal = lv.goals[goalIdx];
+
+  const patch = {};
+  const updated = [];
+  const lockedFields = [];
+  const canStructural = canEditStructural(goal, lv);
+
+  // Always-editable: anchor / notes / ifThenFallback
+  if (args.anchor !== undefined) {
+    if (typeof args.anchor !== "object" || args.anchor === null) throw new Error("anchor must be an object");
+    const newAnchor = { ...(goal.anchor || {}) };
+    for (const k of ["cue", "location", "action", "prep"]) {
+      if (args.anchor[k] !== undefined) {
+        if (typeof args.anchor[k] !== "string") throw new Error(`anchor.${k} must be a string`);
+        const v = args.anchor[k].trim();
+        if (v) newAnchor[k] = v.slice(0, 200);
+        else   delete newAnchor[k]; // empty string clears that field
+      }
+    }
+    patch.anchor = Object.keys(newAnchor).length ? newAnchor : null;
+    updated.push("anchor");
+  }
+  if (args.notes !== undefined) {
+    if (typeof args.notes !== "string") throw new Error("notes must be a string");
+    patch.notes = args.notes.trim() ? args.notes.trim().slice(0, 1000) : null;
+    updated.push("notes");
+  }
+  if (args.ifThenFallback !== undefined) {
+    if (typeof args.ifThenFallback !== "string") throw new Error("ifThenFallback must be a string");
+    patch.ifThenFallback = args.ifThenFallback.trim() ? args.ifThenFallback.trim().slice(0, 500) : null;
+    updated.push("ifThenFallback");
+  }
+
+  // Structural — gated by canEditStructural
+  function structural(field, validateAndSet) {
+    if (args[field] === undefined) return;
+    if (!canStructural) { lockedFields.push(field); return; }
+    validateAndSet();
+    updated.push(field);
+  }
+
+  structural("name", () => {
+    if (typeof args.name !== "string" || !args.name.trim()) throw new Error("name must be a non-empty string");
+    patch.name = args.name.trim().slice(0, 80);
+  });
+  structural("difficulty", () => {
+    if (!DIFFICULTIES.includes(args.difficulty)) throw new Error(`difficulty must be one of ${DIFFICULTIES.join(", ")}`);
+    patch.difficulty = args.difficulty;
+  });
+  structural("template", () => {
+    const allowed = goal.type === "milestone" ? MILESTONE_TEMPLATES : HABIT_TEMPLATES;
+    if (!allowed.includes(args.template)) throw new Error(`template for ${goal.type} must be one of ${allowed.join(", ")}`);
+    patch.template = args.template;
+  });
+  structural("category", () => {
+    if (goal.type === "quitHabit") throw new Error("category cannot be changed for quitHabit (always Resilience)");
+    if (!USER_CATEGORIES.includes(args.category)) throw new Error(`category must be one of ${USER_CATEGORIES.join(", ")}`);
+    patch.category = args.category;
+  });
+  structural("frequency", () => {
+    if (goal.type !== "habitual" && goal.type !== "quitHabit") throw new Error("frequency is only valid for habitual / quitHabit");
+    if (!FREQUENCIES.includes(Number(args.frequency))) throw new Error(`frequency must be one of ${FREQUENCIES.join(", ")}`);
+    patch.frequency = Number(args.frequency);
+  });
+  structural("identities", () => {
+    if (goal.type !== "habitual") throw new Error("identities is only valid for habitual goals");
+    if (!Array.isArray(args.identities)) throw new Error("identities must be an array");
+    const valid = args.identities.filter(i => USER_CATEGORIES.includes(i));
+    const primary = patch.category || goal.category;
+    if (!valid.length) {
+      patch.identities = null; // clears multi-identity
+    } else {
+      const deduped = [primary, ...valid.filter(i => i !== primary)];
+      patch.identities = deduped.length > 1 ? deduped : null;
+    }
+  });
+  structural("milestoneSteps", () => {
+    if (goal.type !== "milestone") throw new Error("milestoneSteps is only valid for milestone goals");
+    if (!Array.isArray(args.milestoneSteps) || args.milestoneSteps.length < 1) throw new Error("milestoneSteps must be a non-empty array");
+    patch.milestoneSteps = args.milestoneSteps
+      .filter(s => s?.name && typeof s.name === "string" && s.name.trim())
+      .map(s => ({ name: s.name.trim().slice(0, 80), completed: !!s.completed }))
+      .slice(0, 8);
+    if (patch.milestoneSteps.length === 0) throw new Error("milestoneSteps must contain at least one valid step");
+  });
+
+  if (Object.keys(patch).length === 0) {
+    if (lockedFields.length) throw new Error(`All requested fields are locked outside the initial 3-day edit window: ${lockedFields.join(", ")}. Only anchor / notes / ifThenFallback remain editable.`);
+    throw new Error("No fields provided to update.");
+  }
+
+  const newGoals = lv.goals.map(g => g.id === goal.id ? { ...g, ...patch } : g);
+  const newLevels = state.levels.map(l => l.id === lv.id ? { ...l, goals: newGoals } : l);
+  await saveUser(uid, { ...state, levels: newLevels });
+
+  return {
+    ok: true,
+    goalId: goal.id,
+    updated,
+    locked: lockedFields,
+    goal: { ...goal, ...patch },
+    note: lockedFields.length
+      ? `Some fields were not applied because the goal's 3-day edit window has passed: ${lockedFields.join(", ")}.`
+      : "User must reload Level-d to see changes.",
+  };
+}
+
 const HANDLERS = {
   list_goals:             toolListGoals,
   get_identity_portrait:  toolGetIdentityPortrait,
   get_weekly_summary:     toolGetWeeklySummary,
   add_habit:              toolAddHabit,
   complete_habit:         toolCompleteHabit,
+  update_chapter:         toolUpdateChapter,
+  advance_level:          toolAdvanceLevel,
+  update_goal:            toolUpdateGoal,
 };
 
 // ── JSON-RPC dispatcher ─────────────────────────────────────────────────────

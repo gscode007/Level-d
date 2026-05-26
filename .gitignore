@@ -8,3 +8,7 @@ dist
 release
 *.exe
 *.asar
+
+# Firebase service account JSONs — contain private keys, never commit
+*firebase-adminsdk*.json
+*-service-account*.json

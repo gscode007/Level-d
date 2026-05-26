@@ -31,15 +31,20 @@ function db() {
   return admin.firestore();
 }
 
+// Returns { uid } on success or { error } with the actual Firebase rejection
+// reason on failure. Surfacing the real reason matters here because the most
+// common cause (FIREBASE_PROJECT_ID server-side ≠ VITE_FIREBASE_PROJECT_ID
+// client-side) is invisible otherwise.
 async function authenticateUser(req) {
   const auth = req.headers["authorization"] || req.headers["Authorization"];
-  if (!auth || !auth.startsWith("Bearer ")) return null;
+  if (!auth || !auth.startsWith("Bearer ")) return { error: "Missing Authorization header" };
   const idToken = auth.slice(7).trim();
+  if (!idToken) return { error: "Empty bearer token" };
   try {
     const decoded = await admin.auth().verifyIdToken(idToken);
-    return decoded.uid;
-  } catch {
-    return null;
+    return { uid: decoded.uid };
+  } catch (e) {
+    return { error: `Token verification failed: ${e.code || e.message || String(e)}` };
   }
 }
 
@@ -108,13 +113,14 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "POST")    return res.status(405).json({ error: "Method not allowed" });
 
-  let uid;
+  let authResult;
   try {
-    uid = await authenticateUser(req);
+    authResult = await authenticateUser(req);
   } catch (e) {
     return res.status(500).json({ error: e.message });
   }
-  if (!uid) return res.status(401).json({ error: "Invalid or missing Firebase ID token" });
+  if (authResult.error) return res.status(401).json({ error: authResult.error });
+  const uid = authResult.uid;
 
   const { action, label, keyId } = req.body || {};
 

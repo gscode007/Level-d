@@ -341,11 +341,29 @@ async function handleRpc(msg, uid) {
 
 // ── HTTP handler ────────────────────────────────────────────────────────────
 export default async function handler(req, res) {
-  // CORS — claude.ai connector calls from the browser
+  // CORS — claude.ai's connector validator probes from the browser.
+  // Allow GET so the liveness probe doesn't 405 (which the UI reports as
+  // "couldn't reach the MCP server"). Allow Mcp-Session-Id for the
+  // Streamable HTTP transport even though we don't yet use sessions.
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, Mcp-Session-Id, MCP-Protocol-Version");
+  res.setHeader("Access-Control-Expose-Headers", "Mcp-Session-Id");
   if (req.method === "OPTIONS") return res.status(204).end();
+
+  // GET = liveness/discovery probe. Return server info so the connector UI
+  // sees a valid response instead of treating 405 as "unreachable".
+  // We don't yet support server-initiated SSE streaming, which is the other
+  // legitimate use of GET in the Streamable HTTP transport spec.
+  if (req.method === "GET") {
+    return res.status(200).json({
+      name: "level-d",
+      version: "0.1.0",
+      protocol: "mcp",
+      transport: "streamable-http",
+      notice: "This endpoint speaks MCP JSON-RPC. POST a JSON-RPC message with a Bearer lvld_ token in Authorization.",
+    });
+  }
 
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });

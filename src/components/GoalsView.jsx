@@ -163,6 +163,22 @@ export default function GoalsView({
                   </div>
                 </div>
 
+                {g.surge?.target && !isDoneToday && (
+                  <button
+                    onClick={() => onCompleteHabitual(g.id, { surge: true })}
+                    title={`Surge: ${g.surge.target} (×${g.surge.multiplier})`}
+                    style={{
+                      flexShrink: 0,
+                      fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 700,
+                      padding: "4px 8px", borderRadius: 4,
+                      color: "var(--yellow)",
+                      background: "rgba(250,204,21,0.1)",
+                      border: "1px solid rgba(250,204,21,0.35)",
+                      cursor: "pointer",
+                    }}
+                  >⚡</button>
+                )}
+
                 <button
                   onClick={() => onCompleteHabitual(g.id)}
                   disabled={isDoneToday}

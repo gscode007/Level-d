@@ -32,14 +32,16 @@ export default function HabitsPanel({ level, state, onCompleteHabitual, onResist
       ? calcBaseXP(g.template, g.difficulty, g.category, "habitual")
       : (g.weight || 10)), 0);
 
-  function handleComplete(goalId) {
+  function handleComplete(goalId, surge = false) {
     if (state.lastCompletions?.[goalId] === t) return;
 
     const g = habits.find(h => h.id === goalId);
     if (!g) return;
 
+    const isSurge = surge === true && !!g.surge;
+
     // Floating "+XP" pop — mirror the central XP module so the number reflects
-    // the streak multiplier and comeback bonus the completion will award.
+    // the streak multiplier, surge, and comeback bonus the completion will award.
     const cfg      = getGamificationConfig(state);
     const freq     = g.frequency || 7;
     const isWeekly = freq < 7;
@@ -54,14 +56,14 @@ export default function HabitsPanel({ level, state, onCompleteHabitual, onResist
       effStreak = state.lastCompletions?.[g.id] === yStr ? curStreak + 1 : 1;
     }
     const isComeback = !isWeekly && !!state.lastCompletions?.[g.id] && state.lastCompletions?.[g.id] !== yStr;
-    const displayXP = computeHabitXP({ baseXP: habitBaseXP(g), streak: effStreak, isComeback, config: cfg }).total;
+    const displayXP = computeHabitXP({ baseXP: habitBaseXP(g), streak: effStreak, isSurge, goal: g, isComeback, config: cfg }).total;
 
     setFlashing(goalId);
     setTimeout(() => setFlashing(null), 320);
-    onCompleteHabitual(goalId);
+    onCompleteHabitual(goalId, { surge: isSurge });
 
     const id = Date.now() + Math.random();
-    setPops(p => [...p, { id, label: `+${displayXP} XP` }]);
+    setPops(p => [...p, { id, label: `${isSurge ? "⚡ " : ""}+${displayXP} XP` }]);
     setTimeout(() => setPops(p => p.filter(x => x.id !== id)), 950);
   }
 
@@ -262,7 +264,36 @@ export default function HabitsPanel({ level, state, onCompleteHabitual, onResist
                     ◆ {g.anchor.cue}
                   </div>
                 )}
+                {g.surge?.target && (
+                  <div style={{
+                    fontSize: 10, color: "var(--yellow)",
+                    marginTop: 3,
+                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    opacity: isDoneToday ? 0.5 : 0.9,
+                    transition: "opacity 0.2s",
+                  }}>
+                    ⚡ surge: {g.surge.target} · ×{g.surge.multiplier}
+                  </div>
+                )}
               </div>
+
+              {/* Surge button — completes the harder variant for bonus XP */}
+              {g.surge?.target && !isDoneToday && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleComplete(g.id, true); }}
+                  title={`Surge: ${g.surge.target} (×${g.surge.multiplier})`}
+                  style={{
+                    flexShrink: 0,
+                    fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 700,
+                    padding: "3px 8px", borderRadius: 4,
+                    color: "var(--yellow)",
+                    background: "rgba(250,204,21,0.1)",
+                    border: "1px solid rgba(250,204,21,0.35)",
+                    cursor: "pointer",
+                    transition: "all 0.15s",
+                  }}
+                >⚡</button>
+              )}
 
               {/* XP badge */}
               <div style={{

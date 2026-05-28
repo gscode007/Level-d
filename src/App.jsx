@@ -229,11 +229,15 @@ export default function App() {
     });
   }
 
-  function completeHabitual(goalId) {
+  function completeHabitual(goalId, opts = {}) {
     const goal = currentLevel.goals.find(g => g.id === goalId);
     if (!goal) return;
     const t = todayStr();
     if (state.lastCompletions[goalId] === t) { notify("Already done today"); return; }
+
+    // Surge completion is a superset of baseline — same completion + streak,
+    // just a harder target and a bonus multiplier. Ignored if no surge variant.
+    const isSurge = opts.surge === true && !!goal.surge;
 
     const freq = goal.frequency || 7;
     const isWeekly = freq < 7;
@@ -271,7 +275,7 @@ export default function App() {
     const baseXP = habitBaseXP(goal);
     const effectiveStreak = isWeekly ? (completingTarget ? newStreak : 0) : newStreak;
     const isComeback = !isWeekly && !!state.lastCompletions[goalId] && state.lastCompletions[goalId] !== yStr;
-    const xpResult = computeHabitXP({ baseXP, streak: effectiveStreak, isComeback, config: cfg });
+    const xpResult = computeHabitXP({ baseXP, streak: effectiveStreak, isSurge, goal, isComeback, config: cfg });
     const rawPts = xpResult.total;
 
     // Apply per-category daily XP cap
@@ -319,10 +323,11 @@ export default function App() {
       dailyCatXP: newDailyCatXP,
     }));
 
+    const surgeTag = isSurge ? " ⚡SURGE" : "";
     if (isComeback && xpResult.comebackBonus > 0) {
-      notify(`◈ Back on track! +${pts} XP · ${goal.category}`);
+      notify(`◈ Back on track! +${pts} XP · ${goal.category}${surgeTag}`);
     } else {
-      notify(`+${pts} XP · ${goal.category}  +${resPts} RES`);
+      notify(`+${pts} XP · ${goal.category}${surgeTag}  +${resPts} RES`);
     }
     setRecentCompletion({ goalId, ts: completionTs, comeback: isComeback && xpResult.comebackBonus > 0 });
     if (navigator.vibrate) navigator.vibrate(isComeback ? [10, 40, 10] : 10);

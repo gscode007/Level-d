@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { USER_CATEGORIES, CAT_META, HABIT_TEMPLATES, MILESTONE_TEMPLATES, DIFFICULTY_MULTIPLIER, SMART_TEMPLATE, FREQUENCY_OPTIONS } from "../constants";
 import { calcBaseXP } from "../utils";
+import { DEFAULT_GAMIFICATION_CONFIG } from "../gamification.config.js";
 import { S } from "../styles";
 
 const EMPTY_ANCHOR = { cue: "", location: "", action: "", prep: "" };
@@ -46,6 +47,12 @@ export default function AddSheet({ type, editing, onAdd, onUpdate, onClose }) {
   const [fallback, setFallback] = useState(editing?.ifThenFallback || "");
   const [anchorOpen, setAnchorOpen] = useState(isEditMode && !!editing?.anchor?.cue);
 
+  // Optional surge variant — a harder target + a modest XP multiplier the user
+  // can pick at completion. Habitual goals only.
+  const [surgeTarget, setSurgeTarget] = useState(editing?.surge?.target || "");
+  const [surgeMult, setSurgeMult]     = useState(editing?.surge?.multiplier || DEFAULT_GAMIFICATION_CONFIG.surge.defaultMultiplier);
+  const [surgeOpen, setSurgeOpen]     = useState(isEditMode && !!editing?.surge?.target);
+
   // If the user changes primary category to one currently selected as secondary,
   // drop it from secondaries so a dimension can't be both primary and secondary.
   useEffect(() => {
@@ -88,10 +95,21 @@ export default function AddSheet({ type, editing, onAdd, onUpdate, onClose }) {
     return [cat, ...secondaries];
   }
 
+  // Surge variant: only when a target is set and it's a habit. multiplier is a
+  // positive kicker; falls back to the config default if blank/invalid.
+  function packSurge() {
+    if (isQuit || effectiveType !== "habitual") return null;
+    const target = surgeTarget.trim();
+    if (!target) return null;
+    const m = Number(surgeMult);
+    return { target: target.slice(0, 80), multiplier: m > 0 ? m : DEFAULT_GAMIFICATION_CONFIG.surge.defaultMultiplier };
+  }
+
   function handleSubmit() {
     if (!name.trim()) return;
     const extras = packExtras();
     const identities = packIdentities();
+    const surge = packSurge();
 
     if (isEditMode) {
       const patch = { name: name.trim(), template, difficulty, ...extras };
@@ -108,6 +126,8 @@ export default function AddSheet({ type, editing, onAdd, onUpdate, onClose }) {
       }
       // identities: explicit array when multi, explicit null when collapsed back to single
       if (!isQuit && effectiveType === "habitual") patch.identities = identities;
+      // surge: explicit object when set, explicit null when cleared
+      if (!isQuit && effectiveType === "habitual") patch.surge = surge;
       onUpdate(patch);
       return;
     }
@@ -123,6 +143,7 @@ export default function AddSheet({ type, editing, onAdd, onUpdate, onClose }) {
     }
     const base = { name: name.trim(), category: cat, template, difficulty, type: effectiveType, frequency, ...extras };
     if (identities) base.identities = identities;
+    if (surge) base.surge = surge;
     if (effectiveType === "milestone") {
       const validSteps = steps.filter(s => s.name.trim()).map(s => ({ name: s.name.trim(), completed: false }));
       if (validSteps.length === 0) return;
@@ -358,6 +379,66 @@ export default function AddSheet({ type, editing, onAdd, onUpdate, onClose }) {
             <button onClick={() => setSteps(s => [...s, { name: "" }])} style={S.ghostBtn}>
               + Add step
             </button>
+          </div>
+        )}
+
+        {/* ── Surge variant (habits only) ── */}
+        {!isQuit && effectiveType === "habitual" && (
+          <div style={{
+            marginTop: 8, marginBottom: 14,
+            border: "1px solid var(--border)",
+            borderRadius: 8,
+            background: "var(--surface-2)",
+            overflow: "hidden",
+          }}>
+            <button
+              type="button"
+              onClick={() => setSurgeOpen(o => !o)}
+              style={{
+                width: "100%", background: "transparent", border: "none",
+                padding: "11px 14px",
+                display: "flex", justifyContent: "space-between", alignItems: "center",
+                cursor: "pointer", color: "var(--text-secondary)",
+                fontFamily: "var(--font-mono)", fontSize: 10, letterSpacing: "0.1em",
+                textTransform: "uppercase", fontWeight: 600,
+              }}
+            >
+              <span>
+                ⚡ Surge &nbsp;
+                <span style={{ color: "var(--text-tertiary)", fontWeight: 400, textTransform: "none", letterSpacing: "0.02em" }}>
+                  optional harder target → bonus XP
+                </span>
+              </span>
+              <span style={{ color: "var(--text-tertiary)" }}>{surgeOpen ? "−" : "+"}</span>
+            </button>
+
+            {surgeOpen && (
+              <div style={{ padding: "4px 14px 14px" }}>
+                <div style={{ marginBottom: 9 }}>
+                  <label style={{ ...S.fLbl, fontSize: 8 }}>Surge target</label>
+                  <input
+                    style={S.fInput}
+                    value={surgeTarget}
+                    onChange={e => setSurgeTarget(e.target.value)}
+                    placeholder="e.g., 100 push-ups (vs the usual 30)"
+                  />
+                </div>
+                <div style={{ marginBottom: 4 }}>
+                  <label style={{ ...S.fLbl, fontSize: 8 }}>Surge multiplier</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="1"
+                    style={{ ...S.fInput, maxWidth: 120 }}
+                    value={surgeMult}
+                    onChange={e => setSurgeMult(e.target.value)}
+                  />
+                </div>
+                <p style={{ fontSize: 9, color: "var(--text-tertiary)", fontFamily: "var(--font-mono)", marginTop: 6, letterSpacing: "0.02em" }}>
+                  Pick baseline or surge when you complete. Surge counts as a normal completion for streaks; XP stacks with your streak (capped at the global ceiling).
+                </p>
+              </div>
+            )}
           </div>
         )}
 

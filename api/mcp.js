@@ -22,6 +22,9 @@ import { getGamificationConfig } from "../src/gamification.config.js";
 import { resolveTimeZone, tzToday } from "../src/gamification/time.js";
 import { completeHabitTransactional, completeQuestTransactional } from "../src/server/completions.js";
 import { initSentry, captureError } from "../src/server/sentry.js";
+import { checkCompletionRateLimit } from "../src/server/ratelimit.js";
+
+const RATE_LIMITED_TOOLS = new Set(["complete_habit", "complete_quest"]);
 
 initSentry(); // no-op unless SENTRY_DSN is set
 
@@ -799,6 +802,18 @@ async function handleRpc(msg, uid) {
     const toolArgs = params?.arguments || {};
     const handler = HANDLERS[toolName];
     if (!handler) return rpcError(id, -32602, `Unknown tool: ${toolName}`);
+    if (RATE_LIMITED_TOOLS.has(toolName)) {
+      const { allowed, retryAfter } = await checkCompletionRateLimit(uid);
+      if (!allowed) {
+        // 429-semantics. The JSON-RPC HTTP envelope stays 200 so the connector
+        // parses the result; the limit is surfaced as a tool error with the
+        // retry hint, never a 500.
+        return rpcResult(id, {
+          content: [{ type: "text", text: `Rate limit exceeded — too many completions. Retry after ${retryAfter}s. (HTTP 429)` }],
+          isError: true,
+        });
+      }
+    }
     try {
       const result = await handler(uid, toolArgs);
       return rpcResult(id, {

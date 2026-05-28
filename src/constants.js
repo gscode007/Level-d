@@ -32,14 +32,6 @@ export const MILESTONE_TEMPLATES = { Completion: 30, Consistency: 40, Performanc
 export const DIFFICULTY_MULTIPLIER = { Easy: 1, Medium: 1.5, Hard: 2 };
 export const CATEGORY_MODIFIER = { Emotional: 1.2, Intellectual: 1.0, Physical: 1.0, Creational: 1.3, "Self-Care": 1.1, Resilience: 1.25 };
 
-// Sorted descending — find() returns highest applicable bonus
-export const STREAK_BONUS = [
-  { days: 30, bonus: 150 },
-  { days: 14, bonus: 60 },
-  { days: 7,  bonus: 25 },
-  { days: 3,  bonus: 10 },
-];
-
 export const DAILY_XP_CAP = 60; // per category per day
 
 // Goals added during a level's initial setup are editable for this long

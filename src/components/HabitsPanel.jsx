@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { CAT_META } from "../constants";
-import { todayStr, calcBaseXP, calcHabitXP, getThisWeekCount, getGoalIdentities } from "../utils";
+import { todayStr, calcBaseXP, getThisWeekCount, getGoalIdentities } from "../utils";
+import { habitBaseXP } from "../gamification/xp.js";
 import { S } from "../styles";
 import { useIsMobile } from "../hooks/useIsMobile";
 
@@ -36,15 +37,8 @@ export default function HabitsPanel({ level, state, onCompleteHabitual, onResist
     const g = habits.find(h => h.id === goalId);
     if (!g) return;
 
-    // Compute display XP (with streak bonus estimate)
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yStr = yesterday.toDateString();
-    const curStreak = state.streaks?.[goalId] || 0;
-    const nextStreak = state.lastCompletions?.[goalId] === yStr ? curStreak + 1 : 1;
-    const displayXP = g.template && g.difficulty
-      ? calcHabitXP(g.template, g.difficulty, g.category, nextStreak)
-      : (g.weight || 10);
+    // Baseline per-completion XP for the floating "+XP" pop.
+    const displayXP = habitBaseXP(g);
 
     setFlashing(goalId);
     setTimeout(() => setFlashing(null), 320);

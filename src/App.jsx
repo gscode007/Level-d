@@ -2,8 +2,10 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db, googleProvider } from "./firebase";
-import { getOverallScore, getRank, mkDefault, genId, mkLevel, todayStr, applyResilienceDecay, calcHabitXP, calcBaseXP, getDailyCatXP, getThisWeekCount, getPrevWeekCount, canEditGoal, getWeeklyVotes, isCheckinDue } from "./utils";
+import { getOverallScore, getRank, mkDefault, genId, mkLevel, todayStr, applyResilienceDecay, calcBaseXP, getDailyCatXP, getThisWeekCount, getPrevWeekCount, canEditGoal, getWeeklyVotes, isCheckinDue } from "./utils";
 import { RANKS, CATEGORIES, DAILY_XP_CAP } from "./constants";
+import { getGamificationConfig } from "./gamification.config.js";
+import { computeHabitXP, habitBaseXP } from "./gamification/xp.js";
 import { S } from "./styles";
 import LoginScreen from "./components/LoginScreen";
 import OAuthAuthorize from "./components/OAuthAuthorize";
@@ -257,16 +259,13 @@ export default function App() {
     const newStreaks = { ...state.streaks, [goalId]: newStreak };
 
     // ── XP calculation ────────────────────────────────────────────────────────
-    // For weekly habits: streak bonus only fires when the weekly target is met
-    let rawPts;
-    if (goal.template && goal.difficulty) {
-      const thisWeekCount = getThisWeekCount(goal.completions || []);
-      const completingTarget = isWeekly && thisWeekCount + 1 >= freq;
-      const streakForBonus = isWeekly ? (completingTarget ? newStreak : 0) : newStreak;
-      rawPts = calcHabitXP(goal.template, goal.difficulty, goal.category, streakForBonus);
-    } else {
-      rawPts = goal.weight || 10;
-    }
+    // The central XP module (src/gamification/xp.js) owns the stacking rule.
+    // Phase 1 wires the baseline path only — streak multiplier, surge, and the
+    // comeback bonus land in later phases. With no multipliers, total === base,
+    // so per-completion XP is byte-for-byte identical to the original.
+    const cfg = getGamificationConfig(state);
+    const baseXP = habitBaseXP(goal);
+    const rawPts = computeHabitXP({ baseXP, config: cfg }).total;
 
     // Apply per-category daily XP cap
     const todayDailyCat = getDailyCatXP(state.dailyCatXP, goal.category, t);

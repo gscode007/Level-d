@@ -334,7 +334,7 @@ export default function AddSheet({ type, editing, onAdd, onUpdate, onClose }) {
         {/* Streak hint */}
         {(effectiveType === "habitual" || isQuit) && (
           <p style={{ fontSize: 9, color: "var(--text-tertiary)", fontFamily: "var(--font-mono)", letterSpacing: "0.04em", marginBottom: 16 }}>
-            🔥 STREAK BONUS: +10 at 3d · +25 at 7d · +60 at 14d · +150 at 30d
+            🔥 STREAK MULTIPLIER: ×1.2 at 7d · ×1.5 at 21d
           </p>
         )}
 

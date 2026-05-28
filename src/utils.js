@@ -1,4 +1,4 @@
-import { CATEGORIES, USER_CATEGORIES, RANKS, RANK_THRESHOLDS, HABIT_TEMPLATES, MILESTONE_TEMPLATES, DIFFICULTY_MULTIPLIER, CATEGORY_MODIFIER, STREAK_BONUS, INITIAL_EDIT_WINDOW_MS } from "./constants";
+import { CATEGORIES, USER_CATEGORIES, RANKS, RANK_THRESHOLDS, HABIT_TEMPLATES, MILESTONE_TEMPLATES, DIFFICULTY_MULTIPLIER, CATEGORY_MODIFIER, INITIAL_EDIT_WINDOW_MS } from "./constants.js";
 
 export const WEEKLY_CHECKIN_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -91,19 +91,6 @@ export const calcBaseXP = (template, difficulty, category, goalType) => {
   const mult = DIFFICULTY_MULTIPLIER[difficulty] ?? 1;
   const mod  = CATEGORY_MODIFIER[category] ?? 1;
   return Math.round(base * mult * mod);
-};
-
-// Returns highest applicable streak bonus (STREAK_BONUS is sorted descending)
-export const calcStreakBonus = (streak) => {
-  if (!streak || streak < 3) return 0;
-  const entry = STREAK_BONUS.find(s => streak >= s.days);
-  return entry ? entry.bonus : 0;
-};
-
-// Full XP for a habit completion (base + streak bonus). Returns null if no template.
-export const calcHabitXP = (template, difficulty, category, streak) => {
-  if (!template || !difficulty) return null;
-  return calcBaseXP(template, difficulty, category, "habitual") + calcStreakBonus(streak || 0);
 };
 
 export const getDailyCatXP = (dailyCatXP, category, dateStr) =>

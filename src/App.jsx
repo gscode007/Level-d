@@ -238,11 +238,16 @@ export default function App() {
     const freq = goal.frequency || 7;
     const isWeekly = freq < 7;
 
-    // ── Streak calculation ────────────────────────────────────────────────────
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yStr = yesterday.toDateString();
+
+    // ── Streak calculation (unchanged) ─────────────────────────────────────────
+    const thisWeekCount   = isWeekly ? getThisWeekCount(goal.completions || []) : 0;
+    const completingTarget = isWeekly && thisWeekCount + 1 >= freq;
+
     let newStreak;
     if (isWeekly) {
-      const thisWeekCount = getThisWeekCount(goal.completions || []);
-      const completingTarget = thisWeekCount + 1 >= freq;
       if (completingTarget) {
         const prevWeekCount = getPrevWeekCount(goal.completions || []);
         const prevMet = prevWeekCount >= freq;
@@ -251,21 +256,23 @@ export default function App() {
         newStreak = state.streaks[goalId] || 0; // mid-week, don't change yet
       }
     } else {
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yStr = yesterday.toDateString();
       newStreak = state.lastCompletions[goalId] === yStr ? (state.streaks[goalId] || 0) + 1 : 1;
     }
     const newStreaks = { ...state.streaks, [goalId]: newStreak };
 
     // ── XP calculation ────────────────────────────────────────────────────────
     // The central XP module (src/gamification/xp.js) owns the stacking rule.
-    // Phase 1 wires the baseline path only — streak multiplier, surge, and the
-    // comeback bonus land in later phases. With no multipliers, total === base,
-    // so per-completion XP is byte-for-byte identical to the original.
+    // The streak multiplier reads the per-habit streak; for weekly habits it
+    // only applies once the weekly target is met (mirrors the prior gating).
+    // The comeback bonus fires on the first completion after a missed day —
+    // daily habits with prior history whose last completion wasn't yesterday.
+    // It is additive and ceiling-exempt; streak math itself is untouched.
     const cfg = getGamificationConfig(state);
     const baseXP = habitBaseXP(goal);
-    const rawPts = computeHabitXP({ baseXP, config: cfg }).total;
+    const effectiveStreak = isWeekly ? (completingTarget ? newStreak : 0) : newStreak;
+    const isComeback = !isWeekly && !!state.lastCompletions[goalId] && state.lastCompletions[goalId] !== yStr;
+    const xpResult = computeHabitXP({ baseXP, streak: effectiveStreak, isComeback, config: cfg });
+    const rawPts = xpResult.total;
 
     // Apply per-category daily XP cap
     const todayDailyCat = getDailyCatXP(state.dailyCatXP, goal.category, t);
@@ -312,9 +319,13 @@ export default function App() {
       dailyCatXP: newDailyCatXP,
     }));
 
-    notify(`+${pts} XP · ${goal.category}  +${resPts} RES`);
-    setRecentCompletion({ goalId, ts: completionTs });
-    if (navigator.vibrate) navigator.vibrate(10);
+    if (isComeback && xpResult.comebackBonus > 0) {
+      notify(`◈ Back on track! +${pts} XP · ${goal.category}`);
+    } else {
+      notify(`+${pts} XP · ${goal.category}  +${resPts} RES`);
+    }
+    setRecentCompletion({ goalId, ts: completionTs, comeback: isComeback && xpResult.comebackBonus > 0 });
+    if (navigator.vibrate) navigator.vibrate(isComeback ? [10, 40, 10] : 10);
   }
 
   function completeMilestoneStep(goalId, stepIdx) {
@@ -548,6 +559,7 @@ export default function App() {
         <QuickNotePopup
           key={recentCompletion.ts}
           goalName={recentGoal.name}
+          comeback={recentCompletion.comeback === true}
           onSubmit={note => addCompletionNote(recentCompletion.goalId, recentCompletion.ts, note)}
           onClose={() => setRecentCompletion(null)}
         />

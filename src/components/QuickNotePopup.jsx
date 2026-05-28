@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 
 const AUTO_DISMISS_MS = 5000;
 
-export default function QuickNotePopup({ goalName, onSubmit, onClose }) {
+export default function QuickNotePopup({ goalName, onSubmit, onClose, comeback = false }) {
   const [note, setNote] = useState("");
   const [dismissed, setDismissed] = useState(false);
   const inputRef = useRef(null);
@@ -43,17 +43,30 @@ export default function QuickNotePopup({ goalName, onSubmit, onClose }) {
         right: 28,
         zIndex: 998,
         background: "var(--surface)",
-        border: "1px solid var(--accent)",
-        borderLeft: "2px solid var(--accent)",
+        border: `1px solid ${comeback ? "var(--green)" : "var(--accent)"}`,
+        borderLeft: `2px solid ${comeback ? "var(--green)" : "var(--accent)"}`,
         borderRadius: 8,
         padding: "10px 12px",
         width: 280,
-        boxShadow: "var(--shadow-lg), 0 0 24px rgba(59,130,246,0.25)",
+        boxShadow: comeback
+          ? "var(--shadow-lg), 0 0 24px rgba(34,197,94,0.3)"
+          : "var(--shadow-lg), 0 0 24px rgba(59,130,246,0.25)",
         opacity: dismissed ? 0 : 1,
         transform: dismissed ? "translateY(8px)" : "translateY(0)",
         transition: "opacity 0.2s, transform 0.2s",
       }}
     >
+      {comeback && (
+        <div style={{
+          fontSize: 9, fontWeight: 700, color: "var(--green)",
+          fontFamily: "var(--font-mono)", letterSpacing: "0.12em",
+          textTransform: "uppercase", marginBottom: 6,
+          display: "flex", alignItems: "center", gap: 5,
+          textShadow: "0 0 8px rgba(34,197,94,0.5)",
+        }}>
+          ◈ Back on track — the return is what counts
+        </div>
+      )}
       <div style={{
         fontSize: 9, color: "var(--text-tertiary)",
         fontFamily: "var(--font-mono)", letterSpacing: "0.1em",

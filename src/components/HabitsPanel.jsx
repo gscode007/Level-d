@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { CAT_META } from "../constants";
 import { todayStr, calcBaseXP, getThisWeekCount, getGoalIdentities } from "../utils";
-import { habitBaseXP } from "../gamification/xp.js";
+import { getGamificationConfig } from "../gamification.config.js";
+import { habitBaseXP, computeHabitXP } from "../gamification/xp.js";
 import { S } from "../styles";
 import { useIsMobile } from "../hooks/useIsMobile";
 
@@ -37,8 +38,23 @@ export default function HabitsPanel({ level, state, onCompleteHabitual, onResist
     const g = habits.find(h => h.id === goalId);
     if (!g) return;
 
-    // Baseline per-completion XP for the floating "+XP" pop.
-    const displayXP = habitBaseXP(g);
+    // Floating "+XP" pop — mirror the central XP module so the number reflects
+    // the streak multiplier and comeback bonus the completion will award.
+    const cfg      = getGamificationConfig(state);
+    const freq     = g.frequency || 7;
+    const isWeekly = freq < 7;
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yStr      = yesterday.toDateString();
+    const curStreak = state.streaks?.[g.id] || 0;
+    let effStreak;
+    if (isWeekly) {
+      effStreak = getThisWeekCount(g.completions || []) + 1 >= freq ? curStreak + 1 : 0;
+    } else {
+      effStreak = state.lastCompletions?.[g.id] === yStr ? curStreak + 1 : 1;
+    }
+    const isComeback = !isWeekly && !!state.lastCompletions?.[g.id] && state.lastCompletions?.[g.id] !== yStr;
+    const displayXP = computeHabitXP({ baseXP: habitBaseXP(g), streak: effStreak, isComeback, config: cfg }).total;
 
     setFlashing(goalId);
     setTimeout(() => setFlashing(null), 320);

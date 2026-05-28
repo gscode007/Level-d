@@ -19,6 +19,8 @@
 import crypto from "node:crypto";
 import admin from "firebase-admin";
 import { getGamificationConfig } from "../src/gamification.config.js";
+import { resolveTimeZone, tzToday } from "../src/gamification/time.js";
+import { completeHabitTransactional, completeQuestTransactional } from "../src/server/completions.js";
 
 // ── Firebase Admin initialization (once per cold start) ─────────────────────
 function db() {
@@ -91,9 +93,6 @@ const EDIT_WINDOW_MS      = 3 * 24 * 60 * 60 * 1000; // mirrors INITIAL_EDIT_WIN
 
 function genId() {
   return Math.random().toString(36).slice(2, 10);
-}
-function todayStr() {
-  return new Date().toDateString();
 }
 function getGoalIdentities(g) {
   return g?.identities?.length ? g.identities : [g?.category].filter(Boolean);
@@ -286,6 +285,7 @@ async function toolListGoals(uid, args) {
   const state = await loadUser(uid);
   const lv = currentLevel(state);
   if (!lv) return { goals: [] };
+  const today = tzToday(resolveTimeZone(state)); // user's timezone, matches the client
   const filter = args?.type || "all";
   const goals = (lv.goals || [])
     .filter(g => filter === "all" || g.type === filter)
@@ -299,7 +299,7 @@ async function toolListGoals(uid, args) {
       difficulty: g.difficulty,
       frequency: g.frequency,
       surge: g.surge ? { target: g.surge.target, multiplier: g.surge.multiplier } : undefined,
-      doneToday: state.lastCompletions?.[g.id] === todayStr(),
+      doneToday: state.lastCompletions?.[g.id] === today,
       streak: state.streaks?.[g.id] || 0,
       currentStreak: g.currentStreak,
       bestStreak: g.bestStreak,
@@ -394,40 +394,22 @@ async function toolAddHabit(uid, args) {
 }
 
 async function toolCompleteHabit(uid, args) {
-  const state = await loadUser(uid);
-  const lv = currentLevel(state);
-  if (!lv) throw new Error("No active chapter.");
   if (!args?.goalId) throw new Error("goalId is required");
-  const goal = (lv.goals || []).find(g => g.id === args.goalId);
-  if (!goal) throw new Error(`No goal with id ${args.goalId}`);
-  if (goal.type !== "habitual") throw new Error("complete_habit only works on habitual goals — use a different tool for milestones/quit-habits.");
-
-  const t = todayStr();
-  if (state.lastCompletions?.[goal.id] === t) {
-    return { ok: false, alreadyDoneToday: true, streak: state.streaks?.[goal.id] || 0 };
+  // Atomic + idempotent: a transaction with a (habit, day) ledger key. day is
+  // resolved in the user's timezone inside the transaction. Return shape is
+  // unchanged from before; a duplicate maps to the existing alreadyDoneToday
+  // signal (status 409 semantically; the JSON-RPC envelope stays 200, never 500).
+  const r = await completeHabitTransactional(db(), uid, args.goalId);
+  if (r.status === 404 || r.status === 400) throw new Error(r.error);
+  if (r.status === 409) {
+    return { ok: false, alreadyDoneToday: true, streak: r.streak };
   }
-
-  // Streak: continues only if completed yesterday
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yStr = yesterday.toDateString();
-  const newStreak = state.lastCompletions?.[goal.id] === yStr ? (state.streaks?.[goal.id] || 0) + 1 : 1;
-
-  const ts = Date.now();
-  const newLevels = state.levels.map(l => l.id === lv.id
-    ? { ...l, goals: l.goals.map(g => g.id === goal.id ? { ...g, completions: [...(g.completions || []), ts] } : g) }
-    : l);
-
-  const newState = {
-    ...state,
-    levels: newLevels,
-    lastCompletions: { ...(state.lastCompletions || {}), [goal.id]: t },
-    streaks: { ...(state.streaks || {}), [goal.id]: newStreak },
-    lastHabitDate: t,
-    consecutiveMissed: 0,
+  return {
+    ok: true,
+    streak: r.streak,
+    completedAt: r.completedAt,
+    note: "XP and Resilience updates land when the user next opens the app.",
   };
-  await saveUser(uid, newState);
-  return { ok: true, streak: newStreak, completedAt: ts, note: "XP and Resilience updates land when the user next opens the app." };
 }
 
 // Validation shared by update_chapter and advance_level
@@ -753,22 +735,19 @@ async function toolAddQuest(uid, args) {
 }
 
 async function toolCompleteQuest(uid, args) {
-  const state = await loadUser(uid);
   if (!args?.questId) throw new Error("questId is required");
-  const quest = (state.quests || []).find(q => q.id === args.questId);
-  if (!quest) throw new Error(`No quest with id ${args.questId}`);
-  if (quest.status === "completed") {
-    return { ok: false, alreadyCompleted: true, quest: mapQuest(quest) };
+  // Atomic + idempotent on (uid, questId) via a transaction + ledger key.
+  // Return shape unchanged; duplicates map to the existing alreadyCompleted
+  // signal, never a 500.
+  const r = await completeQuestTransactional(db(), uid, args.questId);
+  if (r.status === 404) throw new Error(r.error);
+  if (r.status === 409) {
+    return { ok: false, alreadyCompleted: true, quest: mapQuest(r.quest) };
   }
-  // Mark completed but leave XP pending — the app awards it (and reconciles)
-  // on next load, mirroring complete_habit.
-  const completed = { ...quest, status: "completed", completedAt: Date.now(), xpAwarded: false };
-  const newQuests = (state.quests || []).map(q => q.id === quest.id ? completed : q);
-  await saveUser(uid, { ...state, quests: newQuests });
   return {
     ok: true,
-    quest: mapQuest(completed),
-    note: "Quest marked complete. The +" + completed.xp + " XP lands when the user next opens the app.",
+    quest: mapQuest(r.quest),
+    note: "Quest marked complete. The +" + r.quest.xp + " XP lands when the user next opens the app.",
   };
 }
 

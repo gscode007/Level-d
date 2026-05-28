@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test \"src/gamification/**/*.test.mjs\"",
+    "test": "node --test \"src/**/*.test.mjs\"",
     "electron:ico": "node scripts/create-ico.mjs",
     "electron:build": "npm run electron:ico && cross-env CSC_LINK= electron-builder --win"
   },

@@ -51,6 +51,9 @@ class FakeFirestore {
   ledgerKeys(uid) {
     return [...this.store.keys()].filter((k) => k.startsWith(`users/${uid}/completionKeys/`));
   }
+  auditKeys(uid) {
+    return [...this.store.keys()].filter((k) => k.startsWith(`users/${uid}/xpAudit/`));
+  }
   user(uid) { return this.store.get(`users/${uid}`).data; }
 }
 
@@ -80,6 +83,7 @@ test("50 concurrent habit completions → exactly one completion, one ledger, ze
   const goal = db.user("U1").levels[0].goals[0];
   assert.equal(goal.completions.length, 1, "zero duplicate completions in the doc");
   assert.equal(db.ledgerKeys("U1").length, 1, "exactly one ledger key");
+  assert.equal(db.auditKeys("U1").length, 1, "exactly one audit row, atomic with the completion");
   assert.equal(db.user("U1").streaks.H1, 1);
 });
 
@@ -133,6 +137,7 @@ test("concurrent quest completions → exactly one completed, rest 409", async (
   assert.equal(db.user("U2").quests[0].status, "completed");
   assert.equal(db.user("U2").quests[0].xpAwarded, false, "XP left pending for client reconcile");
   assert.equal(db.ledgerKeys("U2").length, 1);
+  assert.equal(db.auditKeys("U2").length, 1, "one audit row for the quest completion");
 });
 
 // helper mirroring tzDayKeyISO for the hand-rolled race transaction above

@@ -19,6 +19,7 @@
  */
 
 import { resolveTimeZone, tzToday, tzYesterday, tzDayKeyISO } from "../gamification/time.js";
+import { auditCollectionPath, auditId, habitAuditEntry, questAuditEntry } from "./audit.js";
 
 export const habitLedgerId = (habitId, dayKeyISO) => `habit_${habitId}_${dayKeyISO}`;
 export const questLedgerId = (questId) => `quest_${questId}`;
@@ -71,6 +72,10 @@ export async function completeHabitTransactional(db, uid, goalId, now = new Date
     const { state: newState, result } = applyHabitCompletion(state, goalId, tzToday(tz, now), tzYesterday(tz, now));
     tx.set(userRef, newState);
     tx.create(ledgerRef, { type: "habit", habitId: goalId, day: dayKey, createdAt: Date.now() });
+    // Append-only audit row, atomic with the completion. XP is null here — the
+    // MCP path defers XP to the next app open.
+    tx.set(db.doc(`${auditCollectionPath(uid)}/${auditId()}`),
+      habitAuditEntry({ source: "mcp", goalId, day: dayKey, streak: result.streak }));
     return { ...result, status: 200 };
   });
 }
@@ -98,6 +103,8 @@ export async function completeQuestTransactional(db, uid, questId, now = new Dat
     const newQuests = (state.quests || []).map((q) => (q.id === questId ? completed : q));
     tx.set(userRef, { ...state, quests: newQuests });
     tx.create(ledgerRef, { type: "quest", questId, createdAt: Date.now() });
+    tx.set(db.doc(`${auditCollectionPath(uid)}/${auditId()}`),
+      questAuditEntry({ source: "mcp", questId, dimension: completed.dimension, xp: null }));
     return { ok: true, status: 200, quest: completed };
   });
 }

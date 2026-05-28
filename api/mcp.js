@@ -21,6 +21,9 @@ import admin from "firebase-admin";
 import { getGamificationConfig } from "../src/gamification.config.js";
 import { resolveTimeZone, tzToday } from "../src/gamification/time.js";
 import { completeHabitTransactional, completeQuestTransactional } from "../src/server/completions.js";
+import { initSentry, captureError } from "../src/server/sentry.js";
+
+initSentry(); // no-op unless SENTRY_DSN is set
 
 // ── Firebase Admin initialization (once per cold start) ─────────────────────
 function db() {
@@ -846,6 +849,7 @@ export default async function handler(req, res) {
   try {
     uid = await authenticate(req);
   } catch (e) {
+    await captureError(e, { where: "authenticate" });
     return res.status(500).json({ error: e.message });
   }
   if (!uid) {
@@ -868,6 +872,7 @@ export default async function handler(req, res) {
     if (response === null) return res.status(204).end();
     return res.status(200).json(response);
   } catch (e) {
+    await captureError(e, { where: "handleRpc", uid });
     return res.status(500).json(rpcError(body?.id ?? null, -32603, "Internal error", String(e)));
   }
 }

@@ -8,6 +8,8 @@ import { getGamificationConfig } from "./gamification.config.js";
 import { computeHabitXP, habitBaseXP, toCompletionRecord } from "./gamification/xp.js";
 import { evaluateBoss } from "./gamification/boss.js";
 import { resolveTimeZone, detectTimeZone, tzToday, tzYesterday } from "./gamification/time.js";
+import { captureError } from "./observability/sentry.js";
+import { appendXpAudit } from "./observability/audit.js";
 import { S } from "./styles";
 import LoginScreen from "./components/LoginScreen";
 import OAuthAuthorize from "./components/OAuthAuthorize";
@@ -114,6 +116,7 @@ export default function App() {
       .catch(e => {
         if (cancelled) return;
         console.error("Failed to load user data:", e);
+        captureError(e, { where: "loadUserData", uid });
         setLoadError(e);
       })
       .finally(() => {
@@ -130,7 +133,7 @@ export default function App() {
   useEffect(() => {
     if (!user || !state) return;
     if (loadedUidRef.current !== user.uid) return;
-    setDoc(doc(db, "users", user.uid), state).catch(console.error);
+    setDoc(doc(db, "users", user.uid), state).catch(e => { console.error(e); captureError(e, { where: "persistState", uid: user.uid }); });
   }, [state]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Auth actions ───────────────────────────────────────────────────────────
@@ -296,6 +299,7 @@ export default function App() {
         ? { ...q, status: "completed", completedAt: Date.now(), xpAwarded: true }
         : q),
     }));
+    appendXpAudit(user?.uid, { kind: "quest_completion", source: "app", questId, dimension: dim, xp: pts });
     notify(`◇ Quest complete · +${pts} XP · ${dim}`);
     if (navigator.vibrate) navigator.vibrate([10, 40, 10]);
   }
@@ -407,6 +411,16 @@ export default function App() {
       decayAppliedOn: t,
       dailyCatXP: newDailyCatXP,
     }));
+
+    appendXpAudit(user?.uid, {
+      kind: "habit_completion", source: "app", goalId, day: t, streak: newStreak, xp: pts,
+      breakdown: {
+        base: baseXP,
+        streakMultiplier: xpResult.streakMultiplier,
+        surgeMultiplier: xpResult.surgeMultiplier,
+        comebackBonus: xpResult.comebackBonus,
+      },
+    });
 
     const surgeTag = isSurge ? " ⚡SURGE" : "";
     if (isComeback && xpResult.comebackBonus > 0) {

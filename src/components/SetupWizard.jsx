@@ -1,18 +1,29 @@
 import { useState } from "react";
 import { USER_CATEGORIES, CAT_META, RANKS } from "../constants";
 import { S } from "../styles";
+import AddSheet from "./AddSheet";
+import QuestSheet from "./QuestSheet";
 
 /* ──────────────────────────────────────────────────────────────────────────
-   SetupWizard — three-step onboarding using Level-d's existing visual system.
+   SetupWizard — four-step onboarding using Level-d's existing visual system.
    Steps:
      1. Chapter title
      2. Identity statements (per dimension)
      3. Weights + required rank
-   Habits are added later from the main app (manually via AddSheet, or via the
-   optional AI Agent feature once unlocked). onFinish always passes goals=[].
+     4. Initial goals — a few habits / quit-habits / milestones / quests that
+        the chapter starts with. These are stamped locked:true, so they share
+        the same 3-day edit window as before: editable for the first 3 days of
+        the level, immutable after. More can still be added later (unlocked).
    ────────────────────────────────────────────────────────────────────────── */
 
-const STEPS = ["Chapter", "Identities", "Weights"];
+const STEPS = ["Chapter", "Identities", "Weights", "Goals"];
+
+const GOAL_TYPES = [
+  { key: "habitual",  label: "Habit" },
+  { key: "milestone", label: "Milestone" },
+  { key: "quitHabit", label: "Quit" },
+  { key: "quest",     label: "Quest" },
+];
 
 export default function SetupWizard({ level, onFinish }) {
   const [step, setStep] = useState(0);
@@ -20,6 +31,12 @@ export default function SetupWizard({ level, onFinish }) {
   const [catGoals, setCatGoals] = useState({ ...level.categoryGoals });
   const [weights, setWeights] = useState({ ...level.weights });
   const [reqRank, setReqRank] = useState(level.requiredRank || "A");
+
+  // Step 4 — initial goals collected before the level begins.
+  const [goals, setGoals]   = useState([]); // habit / milestone / quit payloads
+  const [quests, setQuests] = useState([]); // quest payloads
+  const [addType, setAddType] = useState(null);   // opens AddSheet for this type
+  const [questOpen, setQuestOpen] = useState(false);
 
   function setWeight(cat, raw) {
     const v = Math.max(0, Math.min(100, parseInt(raw) || 0));
@@ -49,7 +66,12 @@ export default function SetupWizard({ level, onFinish }) {
   const canAdvance = step === 0 ? !!title.trim() : true;
   function next()   { setStep((s) => Math.min(STEPS.length - 1, s + 1)); }
   function back()   { setStep((s) => Math.max(0, s - 1)); }
-  function finish() { onFinish(title, catGoals, weights, reqRank, []); }
+  function finish() { onFinish(title, catGoals, weights, reqRank, goals, quests); }
+
+  function addGoalPayload(g)  { setGoals((arr) => [...arr, g]); setAddType(null); }
+  function removeGoal(i)      { setGoals((arr) => arr.filter((_, idx) => idx !== i)); }
+  function addQuestPayload(q) { setQuests((arr) => [...arr, q]); setQuestOpen(false); }
+  function removeQuest(i)     { setQuests((arr) => arr.filter((_, idx) => idx !== i)); }
 
   return (
     <div style={S.setupWrap}>
@@ -228,11 +250,106 @@ export default function SetupWizard({ level, onFinish }) {
 
             <div style={{ display: "flex", gap: 10, marginTop: 26 }}>
               <button style={S.backBtn} onClick={back}>← Back</button>
+              <button style={S.nextBtn} onClick={next}>Continue →</button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 3 — initial goals */}
+        {step === 3 && (
+          <div style={{ animation: "fadeUp 0.3s var(--easing-out)" }}>
+            <p style={S.eyebrow}>{title}</p>
+            <h1 style={S.setupH}>Set your<br />starting goals</h1>
+            <p style={S.setupDesc}>
+              A few habits, milestones, quit-habits, or quests to begin with. These lock 3 days
+              after the level starts — choose carefully. You can always add more later.
+            </p>
+
+            {/* Type buttons */}
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8, marginBottom: 14 }}>
+              {GOAL_TYPES.map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => (key === "quest" ? setQuestOpen(true) : setAddType(key))}
+                  style={{
+                    flex: 1, minWidth: 80, borderRadius: 6, padding: "9px 0",
+                    fontSize: 12, fontWeight: 600, cursor: "pointer",
+                    fontFamily: "var(--font-mono)", letterSpacing: "0.03em",
+                    background: "var(--surface-2)", color: "var(--text-secondary)",
+                    border: "1px solid var(--border)", transition: "all 0.15s",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.color = "var(--accent)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-secondary)"; }}
+                >+ {label}</button>
+              ))}
+            </div>
+
+            {/* Collected list */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 240, overflowY: "auto" }}>
+              {goals.length === 0 && quests.length === 0 && (
+                <p style={{ fontSize: 12, color: "var(--text-tertiary)", textAlign: "center", padding: "18px 0", fontStyle: "italic" }}>
+                  No starting goals yet — add a few, or begin with none.
+                </p>
+              )}
+              {goals.map((g, i) => {
+                const cat = g.type === "quitHabit" ? "Resilience" : g.category;
+                const meta = CAT_META[cat] || {};
+                const typeLabel = g.type === "quitHabit" ? "QUIT" : g.type === "milestone" ? "MILESTONE" : "HABIT";
+                return (
+                  <SetupGoalRow key={`g${i}`} accent={meta.accent} symbol={meta.symbol}
+                    name={g.name} meta={`${typeLabel} · ${cat.toUpperCase()}`} onRemove={() => removeGoal(i)} />
+                );
+              })}
+              {quests.map((q, i) => {
+                const meta = CAT_META[q.dimension] || {};
+                return (
+                  <SetupGoalRow key={`q${i}`} accent="var(--yellow)" symbol="◇"
+                    name={q.title} meta={`QUEST · ${q.dimension.toUpperCase()} · ${String(q.band).toUpperCase()}${q.signature ? " · ★" : ""}`}
+                    onRemove={() => removeQuest(i)} />
+                );
+              })}
+            </div>
+
+            <div style={{ display: "flex", gap: 10, marginTop: 22 }}>
+              <button style={S.backBtn} onClick={back}>← Back</button>
               <button style={S.nextBtn} onClick={finish}>Begin Level {level.num}</button>
             </div>
           </div>
         )}
       </div>
+
+      {addType && (
+        <AddSheet
+          type={addType}
+          onAdd={(g) => addGoalPayload(g)}
+          onClose={() => setAddType(null)}
+        />
+      )}
+      {questOpen && (
+        <QuestSheet
+          chapterTitle={title}
+          onAdd={(q) => addQuestPayload(q)}
+          onClose={() => setQuestOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function SetupGoalRow({ accent, symbol, name, meta, onRemove }) {
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 10,
+      padding: "10px 12px", borderRadius: 6,
+      background: "var(--surface-2)", border: "1px solid var(--border)",
+      borderLeft: `2px solid ${accent || "var(--accent)"}`,
+    }}>
+      <span style={{ color: accent || "var(--accent)", fontSize: 13, flexShrink: 0 }}>{symbol}</span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</div>
+        <div style={{ fontSize: 9, color: "var(--text-tertiary)", fontFamily: "var(--font-mono)", letterSpacing: "0.06em", marginTop: 2 }}>{meta}</div>
+      </div>
+      <button onClick={onRemove} title="Remove" style={{ ...S.delBtn, flexShrink: 0 }}>✕</button>
     </div>
   );
 }

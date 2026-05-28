@@ -25,7 +25,7 @@ export default function GoalsView({
     ? level.goals.find(g => g.id === editingGoalId)
     : null;
   const hoursLeft = editWindowHoursLeft(level);
-  const showEditBanner = hoursLeft > 0 && level.goals.some(g => g.locked);
+  const showEditBanner = hoursLeft > 0 && (level.goals.some(g => g.locked) || (quests || []).some(q => q.locked && (!q.chapterId || q.chapterId === level.id)));
   const isMobile = useIsMobile();
   const [tab, setTab]             = useState("habitual");
   const [calendarGoal, setCalendarGoal]     = useState(null);
@@ -466,11 +466,15 @@ export default function GoalsView({
                     }}
                   >✓ Complete</button>
                 )}
-                <button
-                  onClick={() => onDeleteQuest?.(q.id)}
-                  title="Delete quest"
-                  style={{ ...S.delBtn, flexShrink: 0 }}
-                >✕</button>
+                {canEditGoal(q, level) ? (
+                  <button
+                    onClick={() => onDeleteQuest?.(q.id)}
+                    title="Delete quest"
+                    style={{ ...S.delBtn, flexShrink: 0 }}
+                  >✕</button>
+                ) : (
+                  <span title="Locked — set during chapter setup, immutable after the 3-day window" style={{ fontSize: 10, color: "var(--text-tertiary)", fontFamily: "var(--font-mono)", padding: "2px 4px", flexShrink: 0 }}>⚿</span>
+                )}
               </div>
             );
           })}

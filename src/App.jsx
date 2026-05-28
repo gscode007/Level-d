@@ -183,9 +183,28 @@ export default function App() {
   }, []);
 
   // ── Game actions ───────────────────────────────────────────────────────────
-  function finishSetup(title, categoryGoals, weights, requiredRank, goals = []) {
-    updLv({ title, categoryGoals, weights, requiredRank, goals });
-    setState(s => ({ ...s, setupDone: true }));
+  function finishSetup(title, categoryGoals, weights, requiredRank, goals = [], quests = []) {
+    // Initial goals/quests are stamped locked:true → editable for the first 3
+    // days of the level (canEditGoal), immutable after.
+    const stampedGoals = goals.map(g => ({ ...g, id: genId(), completions: g.completions || [], locked: true }));
+    const cfg = getGamificationConfig(state);
+    const stampedQuests = quests.map(q => {
+      const band = cfg.quests.bands[q.band] !== undefined ? q.band : cfg.quests.defaultBand;
+      return {
+        id: genId(),
+        title: (q.title || "").trim(),
+        dimension: q.dimension,
+        band,
+        xp: cfg.quests.bands[band],
+        status: "active",
+        signature: !!q.signature,
+        chapterId: q.chapterLinked === false ? null : currentLevel.id,
+        createdAt: Date.now(),
+        locked: true,
+      };
+    });
+    updLv({ title, categoryGoals, weights, requiredRank, goals: stampedGoals });
+    setState(s => ({ ...s, setupDone: true, quests: [...(s.quests || []), ...stampedQuests] }));
     setView("dashboard");
   }
 
@@ -277,6 +296,9 @@ export default function App() {
   }
 
   function deleteQuest(questId) {
+    const quest = (state.quests || []).find(q => q.id === questId);
+    // Locked setup quests follow the same 3-day window as locked goals.
+    if (quest && !canEditGoal(quest, currentLevel)) return;
     setState(s => ({ ...s, quests: (s.quests || []).filter(q => q.id !== questId) }));
   }
 

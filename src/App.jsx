@@ -2,11 +2,12 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db, googleProvider } from "./firebase";
-import { getOverallScore, getRank, mkDefault, genId, mkLevel, todayStr, applyResilienceDecay, reconcileQuestXP, calcBaseXP, getDailyCatXP, getThisWeekCount, getPrevWeekCount, canEditGoal, getWeeklyVotes, isCheckinDue } from "./utils";
+import { getOverallScore, getRank, mkDefault, genId, mkLevel, applyResilienceDecay, reconcileQuestXP, calcBaseXP, getDailyCatXP, getThisWeekCount, getPrevWeekCount, canEditGoal, getWeeklyVotes, isCheckinDue } from "./utils";
 import { RANKS, CATEGORIES, USER_CATEGORIES, DAILY_XP_CAP } from "./constants";
 import { getGamificationConfig } from "./gamification.config.js";
 import { computeHabitXP, habitBaseXP } from "./gamification/xp.js";
 import { evaluateBoss } from "./gamification/boss.js";
+import { resolveTimeZone, detectTimeZone, tzToday, tzYesterday } from "./gamification/time.js";
 import { S } from "./styles";
 import LoginScreen from "./components/LoginScreen";
 import OAuthAuthorize from "./components/OAuthAuthorize";
@@ -99,6 +100,10 @@ export default function App() {
       .then(snap => {
         if (cancelled) return;
         const data = snap.exists() ? snap.data() : mkDefault();
+        // Backfill the user's IANA timezone once so the client and the MCP
+        // server resolve "today" identically (additive; defaults to this
+        // device's zone, which matches the pre-change browser-local behavior).
+        if (!data.timezone) data.timezone = detectTimeZone();
         const decayPatch = applyResilienceDecay(data);
         const afterDecay = decayPatch ? { ...data, ...decayPatch } : data;
         // Award XP for any quests completed via MCP since the last open.
@@ -305,7 +310,10 @@ export default function App() {
   function completeHabitual(goalId, opts = {}) {
     const goal = currentLevel.goals.find(g => g.id === goalId);
     if (!goal) return;
-    const t = todayStr();
+    // "Today" resolves in the user's IANA timezone so the client and the MCP
+    // server agree on the civil day (same toDateString format as before).
+    const tz = resolveTimeZone(state);
+    const t = tzToday(tz);
     if (state.lastCompletions[goalId] === t) { notify("Already done today"); return; }
 
     // Surge completion is a superset of baseline — same completion + streak,
@@ -315,9 +323,7 @@ export default function App() {
     const freq = goal.frequency || 7;
     const isWeekly = freq < 7;
 
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yStr = yesterday.toDateString();
+    const yStr = tzYesterday(tz);
 
     // ── Streak calculation (unchanged) ─────────────────────────────────────────
     const thisWeekCount   = isWeekly ? getThisWeekCount(goal.completions || []) : 0;
@@ -439,12 +445,11 @@ export default function App() {
   function resistQuitHabit(goalId) {
     const goal = currentLevel.goals.find(g => g.id === goalId);
     if (!goal || goal.type !== "quitHabit") return;
-    const t = todayStr();
+    const tz = resolveTimeZone(state);
+    const t = tzToday(tz);
     if (state.lastCompletions[goalId] === t) { notify("Already checked in today"); return; }
 
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yStr = yesterday.toDateString();
+    const yStr = tzYesterday(tz);
 
     const lastSlipped = (goal.succumbLog || []).slice(-1)[0] || null;
     const prevStreak  = goal.currentStreak || 0;
@@ -493,7 +498,8 @@ export default function App() {
   function succumbQuitHabit(goalId) {
     const goal = currentLevel.goals.find(g => g.id === goalId);
     if (!goal || goal.type !== "quitHabit") return;
-    const t = todayStr();
+    const tz = resolveTimeZone(state);
+    const t = tzToday(tz);
     if (state.lastCompletions[goalId] === t) { notify("Already checked in today"); return; }
 
     const newLevels = state.levels.map(l =>

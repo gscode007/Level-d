@@ -1,4 +1,5 @@
 import { CATEGORIES, USER_CATEGORIES, RANKS, RANK_THRESHOLDS, HABIT_TEMPLATES, MILESTONE_TEMPLATES, DIFFICULTY_MULTIPLIER, CATEGORY_MODIFIER, INITIAL_EDIT_WINDOW_MS } from "./constants.js";
+import { resolveTimeZone, tzToday } from "./gamification/time.js";
 
 export const WEEKLY_CHECKIN_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -188,9 +189,11 @@ export const isCheckinDue = (state, level) => {
 // Applies Resilience decay for any missed days since last habit or last decay check.
 // Returns a patch object to merge into state, or null if nothing to apply.
 export const applyResilienceDecay = (state) => {
-  const todayDate = new Date();
+  // Resolve "today" in the user's timezone so it stays coherent with the
+  // tz-aware lastHabitDate written on completion.
+  const today = tzToday(resolveTimeZone(state));
+  const todayDate = new Date(today);
   todayDate.setHours(0, 0, 0, 0);
-  const today = todayDate.toDateString();
 
   if (state.decayAppliedOn === today) return null;
 

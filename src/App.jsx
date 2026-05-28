@@ -5,7 +5,7 @@ import { auth, db, googleProvider } from "./firebase";
 import { getOverallScore, getRank, mkDefault, genId, mkLevel, applyResilienceDecay, reconcileQuestXP, calcBaseXP, getDailyCatXP, getThisWeekCount, getPrevWeekCount, canEditGoal, getWeeklyVotes, isCheckinDue } from "./utils";
 import { RANKS, CATEGORIES, USER_CATEGORIES, DAILY_XP_CAP } from "./constants";
 import { getGamificationConfig } from "./gamification.config.js";
-import { computeHabitXP, habitBaseXP } from "./gamification/xp.js";
+import { computeHabitXP, habitBaseXP, toCompletionRecord } from "./gamification/xp.js";
 import { evaluateBoss } from "./gamification/boss.js";
 import { resolveTimeZone, detectTimeZone, tzToday, tzYesterday } from "./gamification/time.js";
 import { S } from "./styles";
@@ -383,9 +383,15 @@ export default function App() {
     newRanks.Resilience  = getRank(newResScore);
 
     const completionTs = Date.now();
+    // Write-time XP breakdown, persisted alongside the bare timestamp. completions[]
+    // stays a number[] so every existing read site is untouched; completionLog[]
+    // is the additive, auditable per-completion record.
+    const xpRecord = toCompletionRecord(completionTs, xpResult, { applied: pts, surge: isSurge });
     const newLevels = state.levels.map(l =>
       l.id === currentLevel.id
-        ? { ...l, goals: l.goals.map(g => g.id === goalId ? { ...g, completions: [...(g.completions || []), completionTs] } : g) }
+        ? { ...l, goals: l.goals.map(g => g.id === goalId
+            ? { ...g, completions: [...(g.completions || []), completionTs], completionLog: [...(g.completionLog || []), xpRecord] }
+            : g) }
         : l
     );
 

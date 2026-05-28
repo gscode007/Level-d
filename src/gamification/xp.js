@@ -78,3 +78,20 @@ export function computeHabitXP({
     total: multiplied + comebackBonus,
   };
 }
+
+// Build the persisted per-completion record from a computeHabitXP breakdown.
+// These are the write-time "columns" stored on each completion so XP history is
+// auditable, while a user's TOTAL XP is always read from the stored catScores
+// running totals — never re-aggregated from this log.
+export function toCompletionRecord(ts, xpResult, { applied, surge = false }) {
+  return {
+    ts,
+    base: xpResult.base,
+    streakMultiplier: xpResult.streakMultiplier,
+    surgeMultiplier: xpResult.surgeMultiplier,
+    comebackBonus: xpResult.comebackBonus,
+    computed: xpResult.total, // pre daily-cap
+    applied,                  // actually added to catScores after the daily cap
+    surge: !!surge,
+  };
+}

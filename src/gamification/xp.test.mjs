@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { calcBaseXP } from "../utils.js";
 import { DEFAULT_GAMIFICATION_CONFIG, getGamificationConfig } from "../gamification.config.js";
-import { computeHabitXP, habitBaseXP, streakMultiplier, surgeMultiplier } from "./xp.js";
+import { computeHabitXP, habitBaseXP, streakMultiplier, surgeMultiplier, toCompletionRecord } from "./xp.js";
 
 const cfg = DEFAULT_GAMIFICATION_CONFIG;
 
@@ -120,6 +120,20 @@ test("getGamificationConfig merges overrides over defaults and keeps tiers sorte
   assert.equal(merged.streak.tiers[0].days, 30); // sorted desc
   assert.equal(merged.surge.defaultMultiplier, cfg.surge.defaultMultiplier); // untouched default
   assert.equal(merged.comeback.bonusPct, cfg.comeback.bonusPct);
+});
+
+// ── Write-time completion record (Layer 0.2) ─────────────────────────────────
+test("toCompletionRecord persists every XP breakdown field at write time", () => {
+  const r = computeHabitXP({ baseXP: 100, streak: 21, isSurge: true, goal: { surge: { multiplier: 1.3 } }, isComeback: true });
+  const rec = toCompletionRecord(1234567890, r, { applied: 60, surge: true });
+  assert.equal(rec.ts, 1234567890);
+  assert.equal(rec.base, 100);
+  assert.equal(rec.streakMultiplier, 1.5);
+  assert.equal(rec.surgeMultiplier, 1.3);
+  assert.equal(rec.comebackBonus, 25);
+  assert.equal(rec.computed, r.total); // pre-cap
+  assert.equal(rec.applied, 60);       // post daily-cap
+  assert.equal(rec.surge, true);
 });
 
 test("getGamificationConfig ignores malformed override and returns defaults", () => {

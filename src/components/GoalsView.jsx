@@ -4,6 +4,7 @@ import { todayStr, calcBaseXP, getThisWeekCount, canEditGoal, editWindowHoursLef
 import { S } from "../styles";
 import { useIsMobile } from "../hooks/useIsMobile";
 import AddSheet from "./AddSheet";
+import QuestSheet from "./QuestSheet";
 import AgentSuggestModal from "./AgentSuggestModal";
 import EmptyHint from "./EmptyHint";
 import HabitCalendar from "./HabitCalendar";
@@ -14,10 +15,12 @@ export default function GoalsView({
   editingGoalId, setEditingGoalId,
   onCompleteHabitual, onCompleteMilestoneStep,
   onResistQuit, onSuccumbQuit,
+  quests = [], onAddQuest, onCompleteQuest, onDeleteQuest,
   addOpen, setAddOpen, addType, setAddType,
   aiAgentEnabled,
 }) {
   const [agentOpen, setAgentOpen] = useState(false);
+  const [questAddOpen, setQuestAddOpen] = useState(false);
   const editingGoal = editingGoalId
     ? level.goals.find(g => g.id === editingGoalId)
     : null;
@@ -32,6 +35,10 @@ export default function GoalsView({
   const habitual  = level.goals.filter(g => g.type === "habitual"   && g.category !== "Resilience");
   const milestones = level.goals.filter(g => g.type === "milestone"  && g.category !== "Resilience");
   const quitGoals = level.goals.filter(g => g.type === "quitHabit");
+  // Quests for this chapter (or unlinked); active first, then completed.
+  const levelQuests = (quests || []).filter(q => !q.chapterId || q.chapterId === level.id);
+  const activeQuests = levelQuests.filter(q => q.status !== "completed");
+  const doneQuests   = levelQuests.filter(q => q.status === "completed");
 
   const today = new Date();
   const lastWeek = new Date(); lastWeek.setDate(lastWeek.getDate() - 7);
@@ -45,7 +52,14 @@ export default function GoalsView({
         </div>
         <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
           <AgentButton enabled={aiAgentEnabled} onClick={() => setAgentOpen(true)} />
-          <button style={S.addBtn} onClick={() => { setAddType(tab === "quit" ? "quitHabit" : tab); setAddOpen(true); }}>
+          <button
+            style={S.addBtn}
+            onClick={() => {
+              if (tab === "quests") { setQuestAddOpen(true); return; }
+              setAddType(tab === "quit" ? "quitHabit" : tab);
+              setAddOpen(true);
+            }}
+          >
             + Add
           </button>
         </div>
@@ -100,6 +114,7 @@ export default function GoalsView({
           ["habitual",  `Habits (${habitual.length})`],
           ["milestone", `Milestones (${milestones.length})`],
           ["quit",      `Quit (${quitGoals.length})`],
+          ["quests",    `Quests (${activeQuests.length})`],
         ].map(([id, label]) => (
           <button key={id} onClick={() => setTab(id)} style={{
             ...S.tab,
@@ -387,6 +402,87 @@ export default function GoalsView({
             );
           })}
         </div>
+      )}
+
+      {/* ── Quests tab ── */}
+      {tab === "quests" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
+          {levelQuests.length === 0 && (
+            <EmptyHint text="One-off side quests. Complete once for a flat XP reward. Mark signature quests to define what leveling up means." onAdd={() => setQuestAddOpen(true)} />
+          )}
+          {[...activeQuests, ...doneQuests].map(q => {
+            const done   = q.status === "completed";
+            const accent = CAT_META[q.dimension]?.accent || "var(--accent)";
+            return (
+              <div key={q.id} style={{
+                display: "flex", alignItems: "center", gap: 12,
+                padding: "13px 14px",
+                background: done ? "rgba(34,197,94,0.04)" : `${accent}07`,
+                border: `1px solid ${done ? "rgba(34,197,94,0.16)" : `${accent}22`}`,
+                borderLeft: `2px solid ${q.signature ? "var(--yellow)" : accent}`,
+                borderRadius: 8,
+              }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    fontSize: 14, fontWeight: 500,
+                    color: done ? "var(--text-tertiary)" : "var(--text-primary)",
+                    textDecoration: done ? "line-through" : "none",
+                    display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap",
+                  }}>
+                    {q.title}
+                    {q.signature && (
+                      <span style={{
+                        fontSize: 8, fontWeight: 700, fontFamily: "var(--font-mono)",
+                        color: "var(--yellow)", background: "rgba(250,204,21,0.12)",
+                        border: "1px solid rgba(250,204,21,0.3)", padding: "1px 6px",
+                        borderRadius: 3, letterSpacing: "0.08em",
+                      }}>★ SIGNATURE</span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 10, color: "var(--text-tertiary)", marginTop: 3, letterSpacing: "0.06em", fontFamily: "var(--font-mono)" }}>
+                    <span style={{ color: accent }}>{CAT_META[q.dimension]?.symbol} {q.dimension.toUpperCase()}</span>
+                    {" · "}+{q.xp} XP · {String(q.band || "").toUpperCase()}
+                    {!q.chapterId ? " · UNLINKED" : ""}
+                  </div>
+                </div>
+
+                {done ? (
+                  <span style={{
+                    fontSize: 9, fontWeight: 700, fontFamily: "var(--font-mono)",
+                    color: "var(--green)", background: "rgba(34,197,94,0.12)",
+                    border: "1px solid rgba(34,197,94,0.25)", padding: "3px 9px",
+                    borderRadius: 4, letterSpacing: "0.06em", flexShrink: 0,
+                  }}>DONE</span>
+                ) : (
+                  <button
+                    onClick={() => onCompleteQuest?.(q.id)}
+                    style={{
+                      flexShrink: 0,
+                      fontSize: 11, fontWeight: 700, fontFamily: "var(--font-mono)",
+                      letterSpacing: "0.04em",
+                      padding: "6px 12px", borderRadius: 5,
+                      color: "var(--green)", background: "rgba(34,197,94,0.1)",
+                      border: "1px solid rgba(34,197,94,0.3)", cursor: "pointer",
+                    }}
+                  >✓ Complete</button>
+                )}
+                <button
+                  onClick={() => onDeleteQuest?.(q.id)}
+                  title="Delete quest"
+                  style={{ ...S.delBtn, flexShrink: 0 }}
+                >✕</button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {questAddOpen && (
+        <QuestSheet
+          chapterTitle={level.title}
+          onAdd={q => { onAddQuest?.(q); setQuestAddOpen(false); }}
+          onClose={() => setQuestAddOpen(false)}
+        />
       )}
 
       {addOpen && (

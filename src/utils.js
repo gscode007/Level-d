@@ -80,7 +80,38 @@ export const mkDefault = () => {
     dailyCatXP: {},
     aiAgentEnabled: false,
     lastWeeklyCheckin: null,
+    quests: [],
   };
+};
+
+// One-off quests award XP when completed. The in-app completion path awards
+// immediately; quests completed via the MCP server are marked completed but
+// pending (xpAwarded !== true). This pass — run on load — awards that pending
+// XP idempotently. It only credits quests for the CURRENT chapter (or unlinked
+// quests) so a quest finished in a past chapter is never misattributed; such
+// quests are left pending and simply never auto-awarded. Purely additive.
+export const reconcileQuestXP = (state) => {
+  const quests = state?.quests;
+  if (!Array.isArray(quests) || quests.length === 0) return null;
+  const currentLevelId = state.currentLevelId;
+  const catScores = { ...state.catScores };
+  let changed = false;
+  const newQuests = quests.map((q) => {
+    if (
+      q.status === "completed" && !q.xpAwarded &&
+      (!q.chapterId || q.chapterId === currentLevelId) &&
+      USER_CATEGORIES.includes(q.dimension) && q.xp > 0
+    ) {
+      catScores[q.dimension] = (catScores[q.dimension] || 0) + q.xp;
+      changed = true;
+      return { ...q, xpAwarded: true };
+    }
+    return q;
+  });
+  if (!changed) return null;
+  const catRanks = { ...state.catRanks };
+  for (const c of USER_CATEGORIES) catRanks[c] = getRank(catScores[c] || 0);
+  return { quests: newQuests, catScores, catRanks };
 };
 
 // ── XP Template Engine ────────────────────────────────────────────────────────

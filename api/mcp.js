@@ -18,6 +18,7 @@
 
 import crypto from "node:crypto";
 import admin from "firebase-admin";
+import { getGamificationConfig } from "../src/gamification.config.js";
 
 // ── Firebase Admin initialization (once per cold start) ─────────────────────
 function db() {
@@ -82,6 +83,8 @@ const HABIT_TEMPLATES     = ["Basic", "Standard", "Intensive", "Precision"];
 const MILESTONE_TEMPLATES = ["Completion", "Consistency", "Performance", "Control", "Transformation"];
 const DIFFICULTIES        = ["Easy", "Medium", "Hard"];
 const FREQUENCIES         = [2, 3, 4, 5, 6, 7];
+const QUEST_BANDS         = ["small", "medium", "large"];
+const QUEST_STATUSES      = ["active", "completed"];
 const RANKS               = ["E", "D", "C", "B", "A", "S"];
 const WEEKLY_MS           = 7 * 24 * 60 * 60 * 1000;
 const EDIT_WINDOW_MS      = 3 * 24 * 60 * 60 * 1000; // mirrors INITIAL_EDIT_WINDOW_MS
@@ -240,6 +243,42 @@ const TOOLS = [
       },
     },
   },
+  {
+    name: "list_quests",
+    description: "Lists the user's quests — one-off side objectives, separate from recurring habits. Returns title, identity dimension, XP reward, status, signature flag, and chapter link per quest.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        status: { type: "string", enum: ["all", "active", "completed"], description: "Filter by status. Default: all." },
+      },
+    },
+  },
+  {
+    name: "add_quest",
+    description: "Creates a one-off quest (completable once), separate from recurring habits. XP is a flat reward from a band: small / medium / large. Mark signature=true for quests that define what leveling up means (these count toward a chapter's boss challenge). Links to the current chapter by default.",
+    inputSchema: {
+      type: "object",
+      required: ["title", "dimension"],
+      properties: {
+        title:     { type: "string", description: "Short objective, under ~12 words." },
+        dimension: { type: "string", enum: USER_CATEGORIES, description: "Identity dimension that earns the XP." },
+        band:      { type: "string", enum: QUEST_BANDS, description: "XP band: small / medium / large. Default: medium." },
+        signature: { type: "boolean", description: "Mark as a signature quest for the current chapter. Default false." },
+        chapterLinked: { type: "boolean", description: "Link to the current chapter (default true). Pass false for a standalone quest." },
+      },
+    },
+  },
+  {
+    name: "complete_quest",
+    description: "Marks a quest completed. Returns the quest and its XP reward. No-ops if already completed. The XP lands in the user's scores when they next open the app (mirrors complete_habit).",
+    inputSchema: {
+      type: "object",
+      required: ["questId"],
+      properties: {
+        questId: { type: "string", description: "The quest's id, as returned by list_quests / add_quest." },
+      },
+    },
+  },
 ];
 
 // ── Tool handlers ───────────────────────────────────────────────────────────
@@ -259,6 +298,7 @@ async function toolListGoals(uid, args) {
       template: g.template,
       difficulty: g.difficulty,
       frequency: g.frequency,
+      surge: g.surge ? { target: g.surge.target, multiplier: g.surge.multiplier } : undefined,
       doneToday: state.lastCompletions?.[g.id] === todayStr(),
       streak: state.streaks?.[g.id] || 0,
       currentStreak: g.currentStreak,
@@ -661,6 +701,77 @@ async function toolUpdateGoal(uid, args) {
   };
 }
 
+// ── Quests ──────────────────────────────────────────────────────────────────
+function mapQuest(q) {
+  return {
+    id: q.id,
+    title: q.title,
+    dimension: q.dimension,
+    band: q.band,
+    xp: q.xp,
+    status: q.status,
+    signature: !!q.signature,
+    chapterId: q.chapterId || null,
+    completedAt: q.completedAt || null,
+  };
+}
+
+async function toolListQuests(uid, args) {
+  const state = await loadUser(uid);
+  const filter = args?.status || "all";
+  const quests = (state.quests || [])
+    .filter(q => filter === "all" || (q.status || "active") === filter)
+    .map(mapQuest);
+  return { count: quests.length, quests };
+}
+
+async function toolAddQuest(uid, args) {
+  const state = await loadUser(uid);
+  const lv = currentLevel(state);
+  if (!lv) throw new Error("No active chapter.");
+  if (!args?.title?.trim()) throw new Error("title is required");
+  if (!USER_CATEGORIES.includes(args.dimension)) throw new Error(`dimension must be one of ${USER_CATEGORIES.join(", ")}`);
+  if (args.band !== undefined && !QUEST_BANDS.includes(args.band)) throw new Error(`band must be one of ${QUEST_BANDS.join(", ")}`);
+
+  const cfg = getGamificationConfig(state);
+  const band = QUEST_BANDS.includes(args.band) ? args.band : cfg.quests.defaultBand;
+  const chapterLinked = args.chapterLinked !== false; // default true
+
+  const quest = {
+    id: genId(),
+    title: args.title.trim().slice(0, 120),
+    dimension: args.dimension,
+    band,
+    xp: cfg.quests.bands[band],
+    status: "active",
+    signature: args.signature === true,
+    chapterId: chapterLinked ? lv.id : null,
+    createdAt: Date.now(),
+  };
+  await saveUser(uid, { ...state, quests: [...(state.quests || []), quest] });
+  return { ok: true, quest: mapQuest(quest) };
+}
+
+async function toolCompleteQuest(uid, args) {
+  const state = await loadUser(uid);
+  if (!args?.questId) throw new Error("questId is required");
+  const quest = (state.quests || []).find(q => q.id === args.questId);
+  if (!quest) throw new Error(`No quest with id ${args.questId}`);
+  if (quest.status === "completed") {
+    return { ok: false, alreadyCompleted: true, quest: mapQuest(quest) };
+  }
+  // Mark completed but leave XP pending — the app awards it (and reconciles)
+  // on next load, mirroring complete_habit.
+  const completed = { ...quest, status: "completed", completedAt: Date.now(), xpAwarded: false };
+  const newQuests = (state.quests || []).map(q => q.id === quest.id ? completed : q);
+  await saveUser(uid, { ...state, quests: newQuests });
+  return {
+    ok: true,
+    quest: mapQuest(completed),
+    note: "Quest marked complete. The +" + completed.xp + " XP lands when the user next opens the app.",
+  };
+}
+
 const HANDLERS = {
   list_goals:             toolListGoals,
   get_identity_portrait:  toolGetIdentityPortrait,
@@ -670,6 +781,9 @@ const HANDLERS = {
   update_chapter:         toolUpdateChapter,
   advance_level:          toolAdvanceLevel,
   update_goal:            toolUpdateGoal,
+  list_quests:            toolListQuests,
+  add_quest:              toolAddQuest,
+  complete_quest:         toolCompleteQuest,
 };
 
 // ── JSON-RPC dispatcher ─────────────────────────────────────────────────────

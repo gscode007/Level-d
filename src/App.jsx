@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { auth, db, googleProvider } from "./firebase";
-import { getOverallScore, getRank, mkDefault, genId, mkLevel, todayStr, applyResilienceDecay, calcBaseXP, getDailyCatXP, getThisWeekCount, getPrevWeekCount, canEditGoal, getWeeklyVotes, isCheckinDue } from "./utils";
-import { RANKS, CATEGORIES, DAILY_XP_CAP } from "./constants";
+import { getOverallScore, getRank, mkDefault, genId, mkLevel, todayStr, applyResilienceDecay, reconcileQuestXP, calcBaseXP, getDailyCatXP, getThisWeekCount, getPrevWeekCount, canEditGoal, getWeeklyVotes, isCheckinDue } from "./utils";
+import { RANKS, CATEGORIES, USER_CATEGORIES, DAILY_XP_CAP } from "./constants";
 import { getGamificationConfig } from "./gamification.config.js";
 import { computeHabitXP, habitBaseXP } from "./gamification/xp.js";
 import { S } from "./styles";
@@ -98,8 +98,11 @@ export default function App() {
       .then(snap => {
         if (cancelled) return;
         const data = snap.exists() ? snap.data() : mkDefault();
-        const patch = applyResilienceDecay(data);
-        setState(patch ? { ...data, ...patch } : data);
+        const decayPatch = applyResilienceDecay(data);
+        const afterDecay = decayPatch ? { ...data, ...decayPatch } : data;
+        // Award XP for any quests completed via MCP since the last open.
+        const questPatch = reconcileQuestXP(afterDecay);
+        setState(questPatch ? { ...afterDecay, ...questPatch } : afterDecay);
         loadedUidRef.current = uid;
       })
       .catch(e => {
@@ -227,6 +230,53 @@ export default function App() {
         ? { ...g, completionNotes: { ...(g.completionNotes || {}), [ts]: trimmed } }
         : g),
     });
+  }
+
+  // ── Quests (one-off, top-level so they survive chapter advancement) ────────
+  function addQuest({ title, dimension, band, signature = false, chapterLinked = true }) {
+    if (!title?.trim() || !USER_CATEGORIES.includes(dimension)) return;
+    const cfg = getGamificationConfig(state);
+    const resolvedBand = cfg.quests.bands[band] !== undefined ? band : cfg.quests.defaultBand;
+    const quest = {
+      id: genId(),
+      title: title.trim(),
+      dimension,
+      band: resolvedBand,
+      xp: cfg.quests.bands[resolvedBand],
+      status: "active",
+      signature: !!signature,
+      chapterId: chapterLinked ? currentLevel.id : null,
+      createdAt: Date.now(),
+    };
+    setState(s => ({ ...s, quests: [...(s.quests || []), quest] }));
+    notify("Quest added");
+  }
+
+  function completeQuest(questId) {
+    const quest = (state.quests || []).find(q => q.id === questId);
+    if (!quest || quest.status === "completed") return;
+    const dim = quest.dimension;
+    const pts = quest.xp || 0;
+    const newScores = { ...state.catScores };
+    const newRanks  = { ...state.catRanks };
+    if (USER_CATEGORIES.includes(dim)) {
+      newScores[dim] = (newScores[dim] || 0) + pts;
+      newRanks[dim]  = getRank(newScores[dim]);
+    }
+    setState(s => ({
+      ...s,
+      catScores: newScores,
+      catRanks: newRanks,
+      quests: (s.quests || []).map(q => q.id === questId
+        ? { ...q, status: "completed", completedAt: Date.now(), xpAwarded: true }
+        : q),
+    }));
+    notify(`◇ Quest complete · +${pts} XP · ${dim}`);
+    if (navigator.vibrate) navigator.vibrate([10, 40, 10]);
+  }
+
+  function deleteQuest(questId) {
+    setState(s => ({ ...s, quests: (s.quests || []).filter(q => q.id !== questId) }));
   }
 
   function completeHabitual(goalId, opts = {}) {
@@ -541,6 +591,10 @@ export default function App() {
           onCompleteMilestoneStep={completeMilestoneStep}
           onResistQuit={resistQuitHabit}
           onSuccumbQuit={succumbQuitHabit}
+          quests={state.quests || []}
+          onAddQuest={addQuest}
+          onCompleteQuest={completeQuest}
+          onDeleteQuest={deleteQuest}
           addOpen={addOpen}
           setAddOpen={setAddOpen}
           addType={addType}

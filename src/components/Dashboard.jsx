@@ -8,10 +8,12 @@ import HabitsPanel from "./HabitsPanel";
 import CatCard from "./CatCard";
 import CategoryModal from "./CategoryModal";
 import WeeklyCheckin from "./WeeklyCheckin";
+import BossChallenge from "./BossChallenge";
 
 export default function Dashboard({
   state, level, overallScore, overallRank,
-  levelComplete, onAdvance, onCompleteHabitual, onCompleteMilestoneStep,
+  levelComplete, canAdvance, bossEval, onEnableBoss, onDisableBoss,
+  onAdvance, onCompleteHabitual, onCompleteMilestoneStep,
   onResistQuit, onSuccumbQuit, onGoToGoals,
   checkinDue, weeklyVotes, onCompleteCheckin, onSkipCheckin,
 }) {
@@ -86,8 +88,19 @@ export default function Dashboard({
         level={level}
         state={state}
         levelComplete={levelComplete}
+        canAdvance={canAdvance}
+        bossBlocked={levelComplete && !canAdvance}
         onAdvance={onAdvance}
       />
+
+      {/* Boss challenge surfaces once the rank target is reached (opt-in gate). */}
+      {(levelComplete || bossEval?.enabled) && (
+        <BossChallenge
+          bossEval={bossEval}
+          onEnableBoss={onEnableBoss}
+          onDisableBoss={onDisableBoss}
+        />
+      )}
 
       <IdentityPortrait level={level} state={state} />
 

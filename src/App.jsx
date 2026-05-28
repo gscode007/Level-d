@@ -6,6 +6,7 @@ import { getOverallScore, getRank, mkDefault, genId, mkLevel, todayStr, applyRes
 import { RANKS, CATEGORIES, USER_CATEGORIES, DAILY_XP_CAP } from "./constants";
 import { getGamificationConfig } from "./gamification.config.js";
 import { computeHabitXP, habitBaseXP } from "./gamification/xp.js";
+import { evaluateBoss } from "./gamification/boss.js";
 import { S } from "./styles";
 import LoginScreen from "./components/LoginScreen";
 import OAuthAuthorize from "./components/OAuthAuthorize";
@@ -502,6 +503,22 @@ export default function App() {
     notify("Skipped — see you next week");
   }
 
+  function enableBoss() {
+    const cfg = getGamificationConfig(state);
+    updLv({ boss: {
+      enabled: true,
+      habitCompletionRate: cfg.boss.habitCompletionRate,
+      trailingWeeks: cfg.boss.trailingWeeks,
+      signatureQuestsRequired: cfg.boss.signatureQuestsRequired,
+    } });
+    notify("Boss challenge enabled");
+  }
+
+  function disableBoss() {
+    updLv({ boss: null });
+    notify("Boss challenge disabled");
+  }
+
   function advanceLevel() {
     const newLv = mkLevel(state.levels.length + 1);
     setState(s => ({
@@ -542,6 +559,10 @@ export default function App() {
   const overallScore  = getOverallScore(state.catScores, currentLevel.weights);
   const overallRank   = getRank(overallScore);
   const levelComplete = RANKS.indexOf(overallRank) >= RANKS.indexOf(currentLevel.requiredRank || "A");
+  // Opt-in boss gate. With no boss set, bossEval.enabled is false → canAdvance
+  // tracks levelComplete exactly as before. A set boss additionally requires met.
+  const bossEval      = evaluateBoss(state, currentLevel, getGamificationConfig(state));
+  const canAdvance    = levelComplete && (!bossEval.enabled || bossEval.met);
 
   if (!state.setupDone) return <SetupWizard level={currentLevel} onFinish={finishSetup} />;
 
@@ -565,6 +586,10 @@ export default function App() {
           overallScore={overallScore}
           overallRank={overallRank}
           levelComplete={levelComplete}
+          canAdvance={canAdvance}
+          bossEval={bossEval}
+          onEnableBoss={enableBoss}
+          onDisableBoss={disableBoss}
           onAdvance={advanceLevel}
           onCompleteHabitual={completeHabitual}
           onCompleteMilestoneStep={completeMilestoneStep}

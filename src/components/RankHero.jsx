@@ -3,7 +3,7 @@ import { getRankPct, getNextThresh, todayStr } from "../utils";
 import { S } from "../styles";
 import { useIsMobile } from "../hooks/useIsMobile";
 
-export default function RankHero({ overallScore, overallRank, level, state, levelComplete, onAdvance }) {
+export default function RankHero({ overallScore, overallRank, level, state, levelComplete, canAdvance = levelComplete, bossBlocked = false, onAdvance }) {
   const isMobile   = useIsMobile();
   const pct        = getRankPct(overallScore, overallRank);
   const nextThresh = getNextThresh(overallRank);
@@ -105,10 +105,15 @@ export default function RankHero({ overallScore, overallRank, level, state, leve
             </div>
           </div>
 
-          {levelComplete && (
+          {canAdvance && (
             <button style={{ ...S.advBtn, width: "100%", marginTop: 6, textAlign: "center" }} onClick={onAdvance}>
               Advance to Level {(level.num || 1) + 1} →
             </button>
+          )}
+          {bossBlocked && (
+            <div style={{ ...bossLockStyle, marginTop: 8, justifyContent: "center" }}>
+              ⚔ Clear the boss challenge to advance
+            </div>
           )}
         </div>
       ) : (
@@ -166,14 +171,27 @@ export default function RankHero({ overallScore, overallRank, level, state, leve
             <Stat label="STREAK" value={maxStreak > 0 ? `${maxStreak}D` : "—"} color={maxStreak >= 3 ? "var(--yellow)" : "var(--text-tertiary)"} glow={maxStreak >= 3} />
           </div>
 
-          {levelComplete && (
+          {canAdvance && (
             <button style={{ ...S.advBtn, flexShrink: 0 }} onClick={onAdvance}>Advance →</button>
+          )}
+          {bossBlocked && (
+            <div style={{ ...bossLockStyle, flexShrink: 0 }}>⚔ Boss locked</div>
           )}
         </div>
       )}
     </div>
   );
 }
+
+const bossLockStyle = {
+  display: "inline-flex", alignItems: "center", gap: 6,
+  padding: "8px 12px", borderRadius: 6,
+  background: "rgba(250,204,21,0.08)",
+  border: "1px solid rgba(250,204,21,0.3)",
+  color: "var(--yellow)",
+  fontSize: 11, fontWeight: 700,
+  fontFamily: "var(--font-mono)", letterSpacing: "0.04em",
+};
 
 function Stat({ label, value, color = "var(--text-primary)", glow = false }) {
   return (

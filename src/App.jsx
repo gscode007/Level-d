@@ -10,6 +10,7 @@ import { evaluateBoss } from "./gamification/boss.js";
 import { resolveTimeZone, detectTimeZone, tzToday, tzYesterday } from "./gamification/time.js";
 import { captureError } from "./observability/sentry.js";
 import { appendXpAudit } from "./observability/audit.js";
+import { estimateDocBytes } from "./gamification/docsize.js";
 import { S } from "./styles";
 import LoginScreen from "./components/LoginScreen";
 import OAuthAuthorize from "./components/OAuthAuthorize";
@@ -52,6 +53,8 @@ export default function App() {
   // refuses to write unless this matches the current user — prevents a failed
   // load or a stale-promise from a previous account from clobbering Firestore.
   const loadedUidRef = useRef(null);
+  // Warn (once per session) before the single user doc nears Firestore's 1MB cap.
+  const docSizeWarnedRef = useRef(false);
 
   function handleTouchStart(e) {
     touchStartX.current = e.touches[0].clientX;
@@ -133,6 +136,11 @@ export default function App() {
   useEffect(() => {
     if (!user || !state) return;
     if (loadedUidRef.current !== user.uid) return;
+    const bytes = estimateDocBytes(state);
+    if (bytes >= getGamificationConfig(state).limits.docSizeWarnBytes && !docSizeWarnedRef.current) {
+      docSizeWarnedRef.current = true;
+      captureError(new Error(`User state doc is ${bytes} bytes, approaching Firestore's 1,048,576-byte limit`), { uid: user.uid, bytes });
+    }
     setDoc(doc(db, "users", user.uid), state).catch(e => { console.error(e); captureError(e, { where: "persistState", uid: user.uid }); });
   }, [state]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -387,14 +395,15 @@ export default function App() {
     newRanks.Resilience  = getRank(newResScore);
 
     const completionTs = Date.now();
-    // Write-time XP breakdown, persisted alongside the bare timestamp. completions[]
-    // stays a number[] so every existing read site is untouched; completionLog[]
-    // is the additive, auditable per-completion record.
+    // Write-time XP breakdown. To keep the single user doc under Firestore's 1MB
+    // ceiling (Layer 2), the per-completion breakdown is NOT stored inline on the
+    // goal — it goes to the append-only xpAudit subcollection below. completions[]
+    // stays a slim number[] so every existing read site is untouched.
     const xpRecord = toCompletionRecord(completionTs, xpResult, { applied: pts, surge: isSurge });
     const newLevels = state.levels.map(l =>
       l.id === currentLevel.id
         ? { ...l, goals: l.goals.map(g => g.id === goalId
-            ? { ...g, completions: [...(g.completions || []), completionTs], completionLog: [...(g.completionLog || []), xpRecord] }
+            ? { ...g, completions: [...(g.completions || []), completionTs] }
             : g) }
         : l
     );
@@ -415,10 +424,10 @@ export default function App() {
     appendXpAudit(user?.uid, {
       kind: "habit_completion", source: "app", goalId, day: t, streak: newStreak, xp: pts,
       breakdown: {
-        base: baseXP,
-        streakMultiplier: xpResult.streakMultiplier,
-        surgeMultiplier: xpResult.surgeMultiplier,
-        comebackBonus: xpResult.comebackBonus,
+        base: xpRecord.base,
+        streakMultiplier: xpRecord.streakMultiplier,
+        surgeMultiplier: xpRecord.surgeMultiplier,
+        comebackBonus: xpRecord.comebackBonus,
       },
     });
 

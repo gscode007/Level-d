@@ -75,6 +75,15 @@ export const DEFAULT_GAMIFICATION_CONFIG = {
     trailingWeeks: 3,
     signatureQuestsRequired: 1,
   },
+
+  // ── Infrastructure limits (Layer 2 / Layer 3) ────────────────────────
+  limits: {
+    // Firestore hard-caps a document at 1,048,576 bytes. Warn well before that
+    // so we can act before the user's single state doc becomes unwritable.
+    docSizeWarnBytes: 800000,
+    // Layer 3: per-user completion rate limit (sliding window).
+    rateLimit: { completionsPerMinute: 30 },
+  },
 };
 
 function num(v, fallback) {
@@ -111,6 +120,12 @@ export function getGamificationConfig(state) {
       habitCompletionRate: num(o.boss?.habitCompletionRate, d.boss.habitCompletionRate),
       trailingWeeks: num(o.boss?.trailingWeeks, d.boss.trailingWeeks),
       signatureQuestsRequired: num(o.boss?.signatureQuestsRequired, d.boss.signatureQuestsRequired),
+    },
+    limits: {
+      docSizeWarnBytes: num(o.limits?.docSizeWarnBytes, d.limits.docSizeWarnBytes),
+      rateLimit: {
+        completionsPerMinute: num(o.limits?.rateLimit?.completionsPerMinute, d.limits.rateLimit.completionsPerMinute),
+      },
     },
   };
 }

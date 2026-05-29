@@ -154,6 +154,21 @@ const TOOLS = [
     },
   },
   {
+    name: "add_milestone",
+    description: "Creates a milestone — a one-time objective broken into steps (e.g. 'Finish the course' → step per module). The category earns the XP, split across the steps. Use this for big goals with discrete progress, not repeatable habits.",
+    inputSchema: {
+      type: "object",
+      required: ["name", "category", "template", "difficulty", "steps"],
+      properties: {
+        name:       { type: "string", description: "Short objective, under ~8 words." },
+        category:   { type: "string", enum: USER_CATEGORIES, description: "Identity dimension that earns the XP." },
+        template:   { type: "string", enum: MILESTONE_TEMPLATES, description: "Total-XP template. Completion=30, Consistency=40, Performance=60, Control=70, Transformation=120 (before difficulty/category modifiers). XP is split evenly across the steps." },
+        difficulty: { type: "string", enum: DIFFICULTIES, description: "Multiplier: Easy=1×, Medium=1.5×, Hard=2×." },
+        steps:      { type: "array", items: { type: "string" }, minItems: 1, maxItems: 8, description: "1–8 step names, in order. Each starts incomplete." },
+      },
+    },
+  },
+  {
     name: "complete_habit",
     description: "Marks a habit completed for today. Returns the new streak and XP earned. No-ops if already completed today.",
     inputSchema: {
@@ -393,6 +408,38 @@ async function toolAddHabit(uid, args) {
     const all = [goal.category, ...valid.filter(i => i !== goal.category)];
     if (all.length > 1) goal.identities = all;
   }
+
+  const newLevels = state.levels.map(l => l.id === lv.id ? { ...l, goals: [...(l.goals || []), goal] } : l);
+  await saveUser(uid, { ...state, levels: newLevels });
+  return { ok: true, goal };
+}
+
+async function toolAddMilestone(uid, args) {
+  const state = await loadUser(uid);
+  const lv = currentLevel(state);
+  if (!lv) throw new Error("No active chapter.");
+  if (!args?.name?.trim()) throw new Error("name is required");
+  if (!USER_CATEGORIES.includes(args.category)) throw new Error(`category must be one of ${USER_CATEGORIES.join(", ")}`);
+  if (!MILESTONE_TEMPLATES.includes(args.template)) throw new Error(`template must be one of ${MILESTONE_TEMPLATES.join(", ")}`);
+  if (!DIFFICULTIES.includes(args.difficulty)) throw new Error(`difficulty must be one of ${DIFFICULTIES.join(", ")}`);
+  if (!Array.isArray(args.steps)) throw new Error("steps must be an array of step names");
+
+  const steps = args.steps
+    .filter(s => typeof s === "string" && s.trim())
+    .map(s => ({ name: s.trim().slice(0, 80), completed: false }))
+    .slice(0, 8);
+  if (steps.length === 0) throw new Error("steps must contain at least one non-empty name");
+
+  const goal = {
+    id: genId(),
+    name: args.name.trim().slice(0, 80),
+    type: "milestone",
+    category: args.category,
+    template: args.template,
+    difficulty: args.difficulty,
+    milestoneSteps: steps,
+    completions: [],
+  };
 
   const newLevels = state.levels.map(l => l.id === lv.id ? { ...l, goals: [...(l.goals || []), goal] } : l);
   await saveUser(uid, { ...state, levels: newLevels });
@@ -762,6 +809,7 @@ const HANDLERS = {
   get_identity_portrait:  toolGetIdentityPortrait,
   get_weekly_summary:     toolGetWeeklySummary,
   add_habit:              toolAddHabit,
+  add_milestone:          toolAddMilestone,
   complete_habit:         toolCompleteHabit,
   update_chapter:         toolUpdateChapter,
   advance_level:          toolAdvanceLevel,

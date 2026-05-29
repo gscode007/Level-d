@@ -23,3 +23,26 @@ test("checkCompletionRateLimit fails OPEN when Upstash is not configured", async
   const r = await checkCompletionRateLimit("user-1");
   assert.deepEqual(r, { allowed: true, retryAfter: 0 });
 });
+
+// A.3 — fail-open Redis failure is reported to Sentry once, still passes through.
+test("Redis failure → Sentry.captureException called once AND pass-through (fail-open)", async () => {
+  let calls = 0;
+  let captured = null;
+  const throwingLimiter = { limit: async () => { throw new Error("redis down"); } };
+  const res = await checkCompletionRateLimit("u1", {
+    limiter: throwingLimiter,
+    captureError: (e) => { calls += 1; captured = e; },
+  });
+  assert.equal(calls, 1, "exactly one capture");
+  assert.equal(captured.message, "redis down");
+  assert.deepEqual(res, { allowed: true, retryAfter: 0 }, "fail-open pass-through unchanged");
+});
+
+test("a healthy limiter is NOT reported and still applies the limit", async () => {
+  let calls = 0;
+  const okLimiter = { limit: async () => ({ success: false, reset: Date.now() + 3000 }) };
+  const res = await checkCompletionRateLimit("u1", { limiter: okLimiter, captureError: () => { calls += 1; } });
+  assert.equal(calls, 0, "no spurious capture on the happy path");
+  assert.equal(res.allowed, false);
+  assert.ok(res.retryAfter >= 1);
+});

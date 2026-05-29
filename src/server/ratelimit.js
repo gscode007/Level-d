@@ -12,6 +12,7 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { DEFAULT_GAMIFICATION_CONFIG } from "../gamification.config.js";
+import { captureError } from "./sentry.js";
 
 let limiter;
 let initialized = false;
@@ -38,13 +39,20 @@ export function toLimitResult(success, reset, now = Date.now()) {
 }
 
 // Returns { allowed, retryAfter }. Fail-open on any error or missing config.
-export async function checkCompletionRateLimit(uid) {
-  const rl = getLimiter();
+// `deps` is a test seam (inject a limiter / error reporter); production calls
+// pass no second arg and behave exactly as before — plus the new Sentry report.
+export async function checkCompletionRateLimit(uid, deps = {}) {
+  const rl = "limiter" in deps ? deps.limiter : getLimiter();
+  const report = deps.captureError || captureError;
   if (!rl) return { allowed: true, retryAfter: 0 };
   try {
     const { success, reset } = await rl.limit(`u:${uid}`);
     return toLimitResult(success, reset);
-  } catch {
+  } catch (err) {
+    // Still FAIL OPEN — a limiter outage must never block a legitimate
+    // completion — but report it so a silent Redis failure is visible.
+    // captureError is env-guarded (no-op without SENTRY_DSN).
+    report(err, { where: "checkCompletionRateLimit", uid });
     return { allowed: true, retryAfter: 0 };
   }
 }

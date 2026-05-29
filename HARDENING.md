@@ -164,3 +164,54 @@ detail and per-change rollback steps: [`migrations/firestore-hardening.md`](migr
    for one user → the isError/Retry-After result appears; others unaffected.
 5. **PWA:** `npm run build && npm run preview`, run Lighthouse (PWA), and do the
    offline → reconnect single-completion check above.
+
+---
+
+## Closeout — A.1 / A.2 / A.3 (2026-05-29)
+
+### A.1 — user-document audit (read-only)
+
+`node scripts/audit-user-docs.js` run live against the **`progress-analysis`**
+project:
+
+```
+inspected:                              4 docs
+old-format (root completionLog[]):      0 docs
+total completionLog entries to migrate: 0
+max doc size:                           6,316 bytes
+✓ No old-format arrays found — Layer 2 was clean from the start.
+```
+
+Clarification on the data model: `goal.completions[]` lives in the root doc **by
+design** (Layer 2 kept it slim; subcollection archival is a flagged future
+follow-up). The only field Layer 2 removed from the root was `goal.completionLog`
+— and it did so by ceasing to write it, not by migrating entries. So A.2's only
+possible target is stray `completionLog[]` leftovers.
+
+### A.2 — migration outcome: **no migration needed**
+
+A.1 found **0** docs with old-format arrays, so per the closeout rule the
+migration is skipped. `node scripts/migrate-completions.js --dry-run` (live)
+confirms: **4 skipped, 0 entries would move, no writes**. `--execute` was
+intentionally **not run** (nothing to migrate).
+
+The script (`scripts/migrate-completions.js`, logic in `src/server/migrate.js`)
+is delivered anyway as idempotent insurance — a stale offline client could
+theoretically sync a 0.2-era doc with `completionLog` after deploy. It is
+idempotent (deterministic `mig_{goalId}_{ts}` ids; move + root-clear in one
+transaction; re-run = no-op), handles partial prior migrations (existing rows
+skipped, root cleared only after all entries confirmed), skips-not-errors on
+clean docs, continues on per-doc failure, and flags >1MB / >450-entry docs for
+manual follow-up. Proven by `src/server/migrate.test.mjs`.
+
+### A.3 — fail-open Redis → Sentry: **wiring added in commit 0ad3fa0**
+
+The Upstash rate-limit catch previously failed open silently. A `captureError`
+call was added on that path (env-guarded; no-op without `SENTRY_DSN`) while the
+fail-open behavior is unchanged. Verified by `src/server/ratelimit.test.mjs`: a
+throwing limiter → `captureError` called exactly once **and** pass-through
+`{allowed:true}` returned; a healthy limiter is not reported.
+
+**Closeout status:** all three items complete. A.2 is a documented no-op
+(Layer 2 was clean); A.1 tooling + A.3 wiring shipped. Full suite: 44 tests
+passing.

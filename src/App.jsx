@@ -23,6 +23,7 @@ import HistoryView from "./components/HistoryView";
 import ReportsView from "./components/ReportsView";
 import QuickNotePopup from "./components/QuickNotePopup";
 import { useIsMobile } from "./hooks/useIsMobile";
+import { useOnlineStatus } from "./hooks/useOnlineStatus";
 
 const RESILIENCE_XP_PER_HABIT = 5;
 
@@ -32,6 +33,7 @@ function readCollapsed() {
 
 export default function App() {
   const isMobile = useIsMobile();
+  const online = useOnlineStatus();
   // undefined = auth loading, null = signed out, object = signed in
   const [user, setUser]             = useState(undefined);
   const [state, setState]           = useState(null);
@@ -696,6 +698,19 @@ export default function App() {
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "transparent", color: "var(--text-primary)", fontFamily: "'Geist', -apple-system, sans-serif" }}>
       {toast && <div style={S.toast}>{toast}</div>}
+      {!online && (
+        <div style={{
+          position: "fixed", bottom: 14, left: "50%", transform: "translateX(-50%)",
+          zIndex: 999, padding: "7px 14px", borderRadius: 999,
+          background: "rgba(250,204,21,0.12)", border: "1px solid rgba(250,204,21,0.35)",
+          color: "var(--yellow)", fontSize: 11, fontWeight: 600,
+          fontFamily: "var(--font-mono)", letterSpacing: "0.04em",
+          backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
+          boxShadow: "var(--shadow-md)", whiteSpace: "nowrap",
+        }}>
+          ◍ Offline — completions are saved and will sync when you reconnect
+        </div>
+      )}
       {recentCompletion && recentGoal && (
         <QuickNotePopup
           key={recentCompletion.ts}

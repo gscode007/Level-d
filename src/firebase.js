@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey:            import.meta.env.VITE_FIREBASE_API_KEY,
@@ -13,6 +13,12 @@ const firebaseConfig = {
 
 export const app            = initializeApp(firebaseConfig);
 export const auth           = getAuth(app);
-export const db             = getFirestore(app);
+// IndexedDB offline persistence = the durable offline completion queue. Writes
+// made offline are queued locally and flushed to Firestore automatically on
+// reconnect; reads fall back to the cache. Multi-tab safe. Falls back to memory
+// cache if persistence can't initialize (e.g. private-mode browsers).
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+});
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: "select_account" });

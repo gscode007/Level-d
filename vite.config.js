@@ -48,6 +48,10 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         skipWaiting: true,
         clientsClaim: true,
+        // Serve the cached app shell for offline navigations so the PWA opens
+        // offline. Exclude API / OAuth / well-known so those never get the shell.
+        navigateFallback: 'index.html',
+        navigateFallbackDenylist: [/^\/api/, /^\/oauth/, /^\/\.well-known/],
         runtimeCaching: [
           {
             // Google Fonts stylesheets

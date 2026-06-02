@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { CATEGORIES, CAT_META, RANK_COLOR } from "../constants";
-import { S } from "../styles";
+import styles from "../styles.module.css";
 import { useIsMobile } from "../hooks/useIsMobile";
 import LevelDetailModal from "./LevelDetailModal";
 
@@ -9,23 +9,24 @@ export default function HistoryView({ state }) {
   const [selected, setSelected] = useState(null);
 
   return (
-    <div style={{ ...S.page, maxWidth: "none", padding: isMobile ? "20px 14px 24px" : S.page.padding }}>
+    <div className={styles.page} style={{ maxWidth: "none", ...(isMobile ? { padding: "20px 14px 24px" } : {}) }}>
       <header style={{ marginBottom: 32 }}>
-        <p style={S.eyebrow}>Records</p>
-        <h1 style={S.pageH1}>History</h1>
+        <p className={styles.eyebrow}>Records</p>
+        <h1 className={styles.pageH1}>History</h1>
       </header>
 
-      {/* All-time scores */}
-      <div style={{ ...S.panel, marginBottom: 10 }}>
-        <p style={S.panelLbl}>All-time scores</p>
+      {/* All-time scores — each track reads as an instrument readout: glyph
+          watermark dim on the track, category-colored fill with glow, and the
+          score / rank as readouts on the right. */}
+      <div className={styles.panel} style={{ marginBottom: 10 }}>
+        <p className={styles.panelLbl}>All-time scores</p>
         {CATEGORIES.map(cat => {
           const score = state.catScores[cat] || 0;
           const rank  = state.catRanks[cat] || "E";
+          const pct   = Math.min(100, (score / 1400) * 100);
+          const fillPct = Math.max(pct, 1.5); // always show a sliver of color even at 0
           return (
-            <div key={cat} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
-              <span style={{ width: 16, fontSize: 12, color: CAT_META[cat].accent, flexShrink: 0, textAlign: "center" }}>
-                {CAT_META[cat].symbol}
-              </span>
+            <div key={cat} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
               <span style={{
                 width: isMobile ? 60 : 90, fontSize: 10, color: "var(--text-secondary)",
                 letterSpacing: "0.06em", fontFamily: "var(--font-mono)",
@@ -33,14 +34,36 @@ export default function HistoryView({ state }) {
               }}>
                 {isMobile ? cat.slice(0, 3) : cat}
               </span>
-              <div style={{ flex: 1, height: 2, background: "var(--border)", borderRadius: 1 }}>
+              {/* Track */}
+              <div style={{
+                flex: 1, position: "relative",
+                height: 22,
+                background: `${CAT_META[cat].accent}10`,
+                border: `1px solid ${CAT_META[cat].accent}22`,
+                borderRadius: 3,
+                overflow: "hidden",
+              }}>
+                {/* Glyph watermark — large + dim, anchored left */}
+                <span aria-hidden="true" style={{
+                  position: "absolute",
+                  left: 8, top: "50%", transform: "translateY(-50%)",
+                  fontSize: 16,
+                  color: CAT_META[cat].accent,
+                  opacity: 0.22,
+                  pointerEvents: "none",
+                  lineHeight: 1,
+                  fontFamily: "var(--font-mono)",
+                }}>
+                  {CAT_META[cat].symbol}
+                </span>
+                {/* Colored fill with glow */}
                 <div style={{
-                  height: "100%",
-                  width: `${Math.min(100, (score / 1400) * 100)}%`,
-                  background: CAT_META[cat].accent,
-                  borderRadius: 1,
+                  position: "absolute", top: 0, left: 0, bottom: 0,
+                  width: `${fillPct}%`,
+                  background: `linear-gradient(90deg, ${CAT_META[cat].accent}55, ${CAT_META[cat].accent}aa)`,
+                  borderRight: pct > 0 ? `1px solid ${CAT_META[cat].accent}` : "none",
+                  boxShadow: pct > 0 ? `0 0 12px ${CAT_META[cat].accent}66, inset 0 0 8px ${CAT_META[cat].accent}33` : "none",
                   transition: "width 0.6s var(--easing-out)",
-                  boxShadow: `0 0 8px ${CAT_META[cat].accent}`,
                 }} />
               </div>
               <span style={{
@@ -64,8 +87,8 @@ export default function HistoryView({ state }) {
       </div>
 
       {/* Level list — clickable */}
-      <div style={S.panel}>
-        <p style={S.panelLbl}>Levels · click to inspect</p>
+      <div className={styles.panel}>
+        <p className={styles.panelLbl}>Levels · click to inspect</p>
         {state.levels.map((lv, i) => {
           const isCurrent = lv.id === state.currentLevelId;
           const habitCount = (lv.goals || []).filter(g => g.type === "habitual").length;

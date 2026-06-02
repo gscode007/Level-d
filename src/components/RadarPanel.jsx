@@ -1,5 +1,5 @@
 import { CATEGORIES, CAT_META } from "../constants";
-import { S } from "../styles";
+import styles from "../styles.module.css";
 
 export default function RadarPanel({ scores }) {
   const N = CATEGORIES.length;
@@ -20,8 +20,8 @@ export default function RadarPanel({ scores }) {
   const poly = CATEGORIES.map((c, i) => pt(i, scores[c] || 0).join(",")).join(" ");
 
   return (
-    <div style={S.panel}>
-      <p style={S.panelLbl}>Dimension Balance</p>
+    <div className={styles.panel}>
+      <p className={styles.panelLbl}>Dimension Balance</p>
       <svg viewBox="0 0 260 260" style={{ width: "100%", maxWidth: 220, display: "block", margin: "0 auto" }}>
         {/* Grid rings */}
         {[0.25, 0.5, 0.75, 1].map((lv, i) => (

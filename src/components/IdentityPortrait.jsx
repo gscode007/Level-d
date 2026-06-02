@@ -1,61 +1,86 @@
 import { USER_CATEGORIES, CAT_META } from "../constants";
 import { getRank } from "../utils";
-import { S } from "../styles";
+import { LABELS } from "../theme.config.js";
+import styles from "../styles.module.css";
 import { useIsMobile } from "../hooks/useIsMobile";
 import RadarChart from "./RadarChart";
 
 /* ──────────────────────────────────────────────────────────────────────────
-   IdentityPortrait — the dashboard's identity surface.
-   Pairs the radar shape (the behavioral signal) with the identity statements
-   the user wrote in onboarding. The connection between "who you claim to be"
-   and "what your behavior shows" lives here.
+   IdentityPortrait — the dashboard's identity surface, the long-loop's
+   primary asset. Pairs the radar shape (behavioral signal) with the
+   first-person identity statements the user wrote in setup.
+
+   Phase 4 promotion: the "behavior says you're …" line is HERO copy —
+   large serif, lands first, before any label or chart. This is the most
+   original, least-derivative line in the app; it sets the tone.
    ────────────────────────────────────────────────────────────────────────── */
 
-export default function IdentityPortrait({ level, state }) {
+export default function IdentityPortrait({ level, state, historicalCatScores }) {
   const isMobile = useIsMobile();
   const radarSize = isMobile ? 200 : 240;
 
-  // Strongest user-category identity — used for the becoming-line.
-  // Skips Resilience since it's auto-managed, not an identity claim.
   const strongest = USER_CATEGORIES
     .map((c) => ({ cat: c, score: state.catScores?.[c] || 0 }))
     .sort((a, b) => b.score - a.score)[0];
   const strongestStatement = (level.categoryGoals?.[strongest.cat] || "").trim();
+  const strongestAccent = CAT_META[strongest.cat]?.accent || "var(--accent)";
+  const hasHero = strongest.score > 0 && strongestStatement;
 
   return (
-    <div style={{
-      ...S.panel,
+    <div className={styles.panel} style={{
       marginBottom: 10,
-      padding: isMobile ? "18px 16px" : "22px 26px",
+      padding: isMobile ? "20px 16px" : "26px 28px",
     }}>
-      {/* Header strip */}
-      <div style={{ marginBottom: 14, display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <p style={S.panelLbl}>Identity Portrait</p>
-        {strongest.score > 0 && (
-          <span style={{
-            fontSize: 10, color: "var(--text-tertiary)",
-            fontFamily: "var(--font-mono)", letterSpacing: "0.04em",
+      {/* ── HERO IDENTITY LINE ────────────────────────────────────────────
+          Phase 4: this used to be a 14-16px italic body line. Promoted to
+          large serif, lands FIRST. The voice of the long loop. */}
+      {hasHero ? (
+        <div style={{ marginBottom: isMobile ? 18 : 22 }}>
+          <p style={{
+            fontSize: 9, fontFamily: "var(--font-mono)",
+            color: "var(--text-tertiary)", letterSpacing: "0.14em",
+            textTransform: "uppercase", fontWeight: 600,
+            marginBottom: 8,
           }}>
-            STRONGEST · <span style={{ color: CAT_META[strongest.cat]?.accent || "var(--accent)", fontWeight: 700 }}>
-              {strongest.cat.toUpperCase()}
+            Strongest · <span style={{ color: strongestAccent, fontWeight: 700 }}>
+              {strongest.cat}
             </span>
-          </span>
-        )}
-      </div>
-
-      {/* Becoming-line: a single line summarizing the most visible identity */}
-      {strongest.score > 0 && strongestStatement && (
-        <p style={{
-          fontSize: isMobile ? 14 : 16,
-          fontStyle: "italic",
-          color: "var(--text-secondary)",
-          lineHeight: 1.4,
-          marginBottom: 16,
-        }}>
-          Your behavior says you're <span style={{ color: CAT_META[strongest.cat]?.accent || "var(--accent)", fontWeight: 600 }}>
-            {strongestStatement}
-          </span>.
-        </p>
+          </p>
+          <p style={{
+            fontSize: isMobile ? 22 : 28,
+            fontWeight: 300,
+            fontStyle: "italic",
+            fontFamily: "'Instrument Serif', Georgia, serif",
+            color: "var(--text-primary)",
+            lineHeight: 1.2,
+            letterSpacing: "-0.01em",
+          }}>
+            Your behavior says you're{" "}
+            <span style={{ color: strongestAccent, fontStyle: "italic", fontWeight: 400 }}>
+              {strongestStatement}
+            </span>.
+          </p>
+        </div>
+      ) : (
+        <div style={{ marginBottom: isMobile ? 14 : 18 }}>
+          <p style={{
+            fontSize: 9, fontFamily: "var(--font-mono)",
+            color: "var(--text-tertiary)", letterSpacing: "0.14em",
+            textTransform: "uppercase", fontWeight: 600,
+            marginBottom: 8,
+          }}>
+            Identity Portrait
+          </p>
+          <p style={{
+            fontSize: isMobile ? 18 : 22,
+            fontWeight: 300, fontStyle: "italic",
+            fontFamily: "'Instrument Serif', Georgia, serif",
+            color: "var(--text-tertiary)",
+            lineHeight: 1.3,
+          }}>
+            Your portrait is waiting. Complete a habit to begin.
+          </p>
+        </div>
       )}
 
       <div style={{
@@ -64,12 +89,47 @@ export default function IdentityPortrait({ level, state }) {
         gap: isMobile ? 18 : 28,
         alignItems: isMobile ? "stretch" : "center",
       }}>
-        {/* Radar */}
-        <div style={{ display: "flex", justifyContent: "center", flexShrink: 0 }}>
-          <RadarChart catScores={state.catScores} size={radarSize} />
+        {/* Radar — current shape, optionally overlaid on a faint historical
+            shape from `levelsBack` levels ago (Phase 10). */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
+          <RadarChart
+            catScores={state.catScores}
+            compareScores={historicalCatScores?.scores}
+            size={radarSize}
+          />
+          {historicalCatScores ? (
+            <div style={{
+              marginTop: 10,
+              fontSize: 10, fontFamily: "var(--font-mono)",
+              color: "var(--text-tertiary)", letterSpacing: "0.06em",
+              display: "flex", alignItems: "center", gap: 12,
+            }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{
+                  width: 12, height: 1, borderTop: "1.5px dashed var(--text-tertiary)",
+                }} />
+                THEN · {historicalCatScores.atLevel}
+              </span>
+              <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{
+                  width: 12, height: 2, background: "var(--accent)", borderRadius: 1,
+                }} />
+                NOW
+              </span>
+            </div>
+          ) : (
+            <div style={{
+              marginTop: 10, maxWidth: 220, textAlign: "center",
+              fontSize: 11, fontStyle: "italic",
+              fontFamily: "'Instrument Serif', Georgia, serif",
+              color: "var(--text-tertiary)", lineHeight: 1.4,
+            }}>
+              {LABELS.emptyState.radarBaseline}
+            </div>
+          )}
         </div>
 
-        {/* Identity list */}
+        {/* Per-dimension identity rows */}
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 8 }}>
           {USER_CATEGORIES.map((cat) => {
             const meta      = CAT_META[cat];
@@ -106,9 +166,10 @@ export default function IdentityPortrait({ level, state }) {
                     </span>
                   </div>
                   <div style={{
-                    fontSize: 12, fontStyle: "italic",
+                    fontSize: 13, fontStyle: "italic",
+                    fontFamily: "'Instrument Serif', Georgia, serif",
                     color: statement ? "var(--text-primary)" : "var(--text-tertiary)",
-                    marginTop: 3, lineHeight: 1.35,
+                    marginTop: 4, lineHeight: 1.4,
                     overflow: "hidden", textOverflow: "ellipsis",
                     display: "-webkit-box",
                     WebkitLineClamp: 2,
@@ -122,17 +183,6 @@ export default function IdentityPortrait({ level, state }) {
           })}
         </div>
       </div>
-
-      {strongest.score === 0 && (
-        <p style={{
-          marginTop: 14,
-          fontSize: 11, color: "var(--text-tertiary)",
-          fontFamily: "var(--font-mono)", letterSpacing: "0.04em",
-          textAlign: "center",
-        }}>
-          Complete habits to see your portrait take shape.
-        </p>
-      )}
     </div>
   );
 }

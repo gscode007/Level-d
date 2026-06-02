@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { auth } from "../firebase";
-import { S } from "../styles";
+import styles from "../styles.module.css";
 
 /* ──────────────────────────────────────────────────────────────────────────
    ApiKeysModal — manages MCP API keys for the Claude connector.
@@ -164,8 +164,9 @@ export default function ApiKeysModal({ onClose }) {
               </code>
               <button
                 onClick={handleCopy}
+                className={styles.ghostBtn}
                 style={{
-                  ...S.ghostBtn, fontSize: 10, padding: "5px 10px",
+                  fontSize: 10, padding: "5px 10px",
                   letterSpacing: "0.06em", fontFamily: "var(--font-mono)",
                   flexShrink: 0,
                   color: copied ? "var(--green)" : "var(--text-secondary)",
@@ -175,7 +176,8 @@ export default function ApiKeysModal({ onClose }) {
             </div>
             <button
               onClick={() => setRevealed(null)}
-              style={{ ...S.ghostBtn, marginTop: 10, fontSize: 11, padding: "6px 12px" }}
+              className={styles.ghostBtn}
+              style={{ marginTop: 10, fontSize: 11, padding: "6px 12px" }}
             >Done</button>
           </div>
         )}
@@ -183,20 +185,22 @@ export default function ApiKeysModal({ onClose }) {
         {/* Generate */}
         {!revealed && (
           <div style={{ marginBottom: 18 }}>
-            <label style={S.fLbl}>Generate new key</label>
+            <label className={styles.fLbl}>Generate new key</label>
             <div style={{ display: "flex", gap: 6 }}>
               <input
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
                 placeholder="Label (e.g., Claude Desktop) — optional"
-                style={{ ...S.fInput, flex: 1 }}
+                className={styles.fInput}
+                style={{ flex: 1 }}
                 onKeyDown={(e) => e.key === "Enter" && !generating && handleGenerate()}
               />
               <button
                 onClick={handleGenerate}
                 disabled={generating}
+                className={styles.addBtn}
                 style={{
-                  ...S.addBtn, padding: "9px 16px",
+                  padding: "9px 16px",
                   opacity: generating ? 0.5 : 1, flexShrink: 0,
                 }}
               >{generating ? "…" : "+ Generate"}</button>
@@ -206,7 +210,7 @@ export default function ApiKeysModal({ onClose }) {
 
         {/* List */}
         <div>
-          <p style={{ ...S.panelLbl, marginBottom: 10 }}>Existing keys ({keys.length})</p>
+          <p className={styles.panelLbl} style={{ marginBottom: 10 }}>Existing keys ({keys.length})</p>
           {loading && (
             <p style={{ fontSize: 12, color: "var(--text-tertiary)", textAlign: "center", padding: "16px 0" }}>
               Loading…

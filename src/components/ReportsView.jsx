@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { CAT_META, CATEGORIES } from "../constants";
-import { S } from "../styles";
+import styles from "../styles.module.css";
 import { useIsMobile } from "../hooks/useIsMobile";
 import {
   dayRange, weekRange, monthRange,
@@ -34,10 +34,10 @@ export default function ReportsView({ state }) {
   }
 
   return (
-    <div style={{ ...S.page, maxWidth: "none", padding: isMobile ? "20px 14px 24px" : S.page.padding }}>
+    <div className={styles.page} style={{ maxWidth: "none", ...(isMobile ? { padding: "20px 14px 24px" } : {}) }}>
       <header style={{ marginBottom: 24 }}>
-        <p style={S.eyebrow}>Snapshot</p>
-        <h1 style={S.pageH1}>Reports</h1>
+        <p className={styles.eyebrow}>Snapshot</p>
+        <h1 className={styles.pageH1}>Reports</h1>
       </header>
 
       {/* Period selector */}
@@ -103,8 +103,8 @@ export default function ReportsView({ state }) {
       </div>
 
       {/* Per-category XP bars */}
-      <div style={{ ...S.panel, marginBottom: 10 }}>
-        <p style={S.panelLbl}>XP by category · {label.toLowerCase()}</p>
+      <div className={styles.panel} style={{ marginBottom: 10 }}>
+        <p className={styles.panelLbl}>XP by category · {label.toLowerCase()}</p>
         {report.totalXP === 0 ? (
           <EmptyHint>No XP in this period yet.</EmptyHint>
         ) : (
@@ -148,8 +148,8 @@ export default function ReportsView({ state }) {
 
       {/* Top goals in period */}
       {report.perGoal.length > 0 && (
-        <div style={{ ...S.panel, marginBottom: 10 }}>
-          <p style={S.panelLbl}>Top goals</p>
+        <div className={styles.panel} style={{ marginBottom: 10 }}>
+          <p className={styles.panelLbl}>Top goals</p>
           {report.perGoal.slice(0, 5).map(({ goal, count }) => (
             <div key={goal.id} style={{
               display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -180,12 +180,12 @@ export default function ReportsView({ state }) {
 
       {/* Note themes */}
       {totalNotes > 0 && (
-        <div style={{ ...S.panel, marginBottom: 10 }}>
+        <div className={styles.panel} style={{ marginBottom: 10 }}>
           <div style={{
             display: "flex", justifyContent: "space-between", alignItems: "baseline",
             marginBottom: 14,
           }}>
-            <p style={{ ...S.panelLbl, marginBottom: 0 }}>Themes in your notes</p>
+            <p className={styles.panelLbl} style={{ marginBottom: 0 }}>Themes in your notes</p>
             <span style={{
               fontSize: 10, color: "var(--text-tertiary)",
               fontFamily: "var(--font-mono)", letterSpacing: "0.06em",
@@ -228,12 +228,12 @@ export default function ReportsView({ state }) {
       )}
 
       {/* Badges */}
-      <div style={S.panel}>
+      <div className={styles.panel}>
         <div style={{
           display: "flex", justifyContent: "space-between", alignItems: "baseline",
           marginBottom: 14,
         }}>
-          <p style={{ ...S.panelLbl, marginBottom: 0 }}>Badges</p>
+          <p className={styles.panelLbl} style={{ marginBottom: 0 }}>Badges</p>
           <span style={{
             fontSize: 10, color: "var(--text-tertiary)",
             fontFamily: "var(--font-mono)", letterSpacing: "0.06em",
@@ -258,8 +258,7 @@ export default function ReportsView({ state }) {
 
 function StatCard({ label, value, hint, accent }) {
   return (
-    <div style={{
-      ...S.catCard,
+    <div className={styles.catCard} style={{
       padding: "14px 14px",
       borderLeft: accent ? "2px solid var(--accent)" : "1px solid var(--border)",
     }}>

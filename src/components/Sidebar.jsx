@@ -1,12 +1,13 @@
-import { useState } from "react";
-import { S } from "../styles";
-import ApiKeysModal from "./ApiKeysModal";
+import styles from "../styles.module.css";
+import { NAV_ICONS, BrandMark } from "./icons/NavIcons";
+import { THEME_CONFIG } from "../theme.config.js";
 
 const NAV_ITEMS = [
-  ["dashboard", "Dashboard", "⊞"],
-  ["goals",     "Goals",     "◎"],
-  ["reports",   "Reports",   "▤"],
-  ["history",   "History",   "≡"],
+  ["dashboard", "Dashboard"],
+  ["goals",     "Goals"    ],
+  ["reports",   "Reports"  ],
+  ["history",   "History"  ],
+  ["settings",  "Settings" ],
 ];
 
 // ── Collapsed icon-bar (desktop only) ────────────────────────────────────────
@@ -26,38 +27,40 @@ function CollapsedBar({ view, setView, onToggle }) {
       height: "100vh",
       flexShrink: 0,
     }}>
-      {/* Logo */}
-      <div style={{ padding: "16px 0 12px" }}>
-        <div style={{
-          width: 24, height: 24, borderRadius: 4,
-          background: "var(--accent-dim)", border: "1px solid var(--accent)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 10, color: "var(--accent)", fontWeight: 700,
-          boxShadow: "0 0 8px var(--accent-glow)",
-        }}>◈</div>
+      {/* Brand mark */}
+      <div style={{
+        padding: "16px 0 12px",
+        color: "var(--accent)",
+      }}>
+        <BrandMark size={22} glow color="var(--accent)" />
       </div>
 
       <div style={{ height: 1, background: "var(--border)", width: "80%", marginBottom: 8 }} />
 
       {/* Nav icons */}
       <nav style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-        {NAV_ITEMS.map(([id, label, icon]) => (
-          <button
-            key={id}
-            title={label}
-            onClick={() => setView(id)}
-            style={{
-              width: 34, height: 34, borderRadius: 6,
-              background: view === id ? "var(--accent-dim)" : "transparent",
-              border: `1px solid ${view === id ? "var(--accent)" : "transparent"}`,
-              color: view === id ? "var(--accent)" : "var(--text-tertiary)",
-              fontSize: 15, cursor: "pointer",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              transition: "all 0.15s",
-              boxShadow: view === id ? "inset 0 0 10px rgba(59,130,246,0.1)" : "none",
-            }}
-          >{icon}</button>
-        ))}
+        {NAV_ITEMS.map(([id, label]) => {
+          const Icon = NAV_ICONS[id];
+          return (
+            <button
+              key={id}
+              title={label}
+              onClick={() => setView(id)}
+              style={{
+                width: 34, height: 34, borderRadius: 6,
+                background: view === id ? "var(--accent-dim)" : "transparent",
+                border: `1px solid ${view === id ? "var(--accent)" : "transparent"}`,
+                color: view === id ? "var(--accent)" : "var(--text-tertiary)",
+                cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                transition: "all 0.15s",
+                boxShadow: view === id ? "inset 0 0 10px rgba(59,130,246,0.1)" : "none",
+              }}
+            >
+              {Icon && <Icon size={THEME_CONFIG.navIcons.sidebarCollapsedPx} />}
+            </button>
+          );
+        })}
       </nav>
 
       {/* Expand button */}
@@ -78,9 +81,7 @@ function CollapsedBar({ view, setView, onToggle }) {
 }
 
 // ── Full sidebar (expanded desktop or mobile drawer) ─────────────────────────
-export default function Sidebar({ view, setView, levelNum, overallRank, user, onSignOut, onReset, collapsed, onToggle, isDrawer, onClose, aiAgentEnabled, onToggleAgent }) {
-  const [keysOpen, setKeysOpen] = useState(false);
-
+export default function Sidebar({ view, setView, levelNum, overallRank, user, onSignOut, isDrawer, onClose, collapsed, onToggle }) {
   if (collapsed && !isDrawer) {
     return <CollapsedBar view={view} setView={setView} onToggle={onToggle} />;
   }
@@ -129,14 +130,8 @@ export default function Sidebar({ view, setView, levelNum, overallRank, user, on
           {/* Header */}
           <div style={{ padding: "20px 14px 0", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
-                <div style={{
-                  width: 22, height: 22, borderRadius: 4, flexShrink: 0,
-                  background: "var(--accent-dim)", border: "1px solid var(--accent)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 10, color: "var(--accent)", fontWeight: 700,
-                  boxShadow: "0 0 8px var(--accent-glow)",
-                }}>◈</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5, color: "var(--accent)" }}>
+                <BrandMark size={20} glow color="var(--accent)" />
                 <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-primary)", letterSpacing: "0.12em" }}>
                   LEVELD
                 </div>
@@ -163,30 +158,55 @@ export default function Sidebar({ view, setView, levelNum, overallRank, user, on
           <div style={{ height: 1, background: "var(--border)", margin: "18px 0 8px" }} />
 
           <nav style={{ padding: "0 8px" }}>
-            {NAV_ITEMS.map(([id, label]) => (
-              <button
-                key={id}
-                onClick={closeIfDrawer(() => setView(id))}
-                style={{
-                  display: "block", width: "100%", textAlign: "left",
-                  padding: "9px 14px", border: "none", borderRadius: 0,
-                  cursor: "pointer", fontSize: 13, letterSpacing: "0.01em",
-                  background: view === id ? "var(--accent-dim)" : "transparent",
-                  color: view === id ? "var(--accent)" : "var(--text-secondary)",
-                  fontWeight: view === id ? 600 : 400,
-                  borderLeft: view === id ? "2px solid var(--accent)" : "2px solid transparent",
-                  marginBottom: 1,
-                  boxShadow: view === id ? "inset 2px 0 12px rgba(59,130,246,0.08)" : "none",
-                  transition: "all 0.15s",
-                }}
-              >{label}</button>
-            ))}
+            {NAV_ITEMS.map(([id, label]) => {
+              const Icon = NAV_ICONS[id];
+              return (
+                <button
+                  key={id}
+                  onClick={closeIfDrawer(() => setView(id))}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    width: "100%", textAlign: "left",
+                    padding: "9px 14px", border: "none", borderRadius: 0,
+                    cursor: "pointer", fontSize: 13, letterSpacing: "0.01em",
+                    background: view === id ? "var(--accent-dim)" : "transparent",
+                    color: view === id ? "var(--accent)" : "var(--text-secondary)",
+                    fontWeight: view === id ? 600 : 400,
+                    borderLeft: view === id ? "2px solid var(--accent)" : "2px solid transparent",
+                    marginBottom: 1,
+                    boxShadow: view === id ? "inset 2px 0 12px rgba(59,130,246,0.08)" : "none",
+                    transition: "all 0.15s",
+                  }}
+                >
+                  {Icon && <Icon size={THEME_CONFIG.navIcons.sidebarPx} />}
+                  <span>{label}</span>
+                </button>
+              );
+            })}
           </nav>
         </div>
 
-        {/* User footer */}
-        <div style={{ padding: "10px 12px 18px", borderTop: "1px solid var(--border)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 9 }}>
+        {/* User footer — the profile chip is the SETTINGS entry point
+            (Phase 7). A direct sign-out affordance sits beside it so
+            users are never stranded if SettingsView fails to render. */}
+        <div style={{
+          display: "flex", alignItems: "stretch",
+          borderTop: "1px solid var(--border)",
+        }}>
+          <button
+            onClick={closeIfDrawer(() => setView("settings"))}
+            title="Open settings"
+            style={{
+              flex: 1, minWidth: 0,
+              display: "flex", alignItems: "center", gap: 9,
+              padding: "12px 12px 16px",
+              background: view === "settings" ? "var(--accent-dim)" : "transparent",
+              border: "none",
+              cursor: "pointer",
+              textAlign: "left",
+              transition: "background 0.15s",
+            }}
+          >
             {user.photoURL ? (
               <img src={user.photoURL} alt="" style={{ width: 26, height: 26, borderRadius: 4, flexShrink: 0, border: "1px solid var(--border)" }} />
             ) : (
@@ -199,7 +219,7 @@ export default function Sidebar({ view, setView, levelNum, overallRank, user, on
                 {(user.displayName || user.email || "?")[0].toUpperCase()}
               </div>
             )}
-            <div style={{ minWidth: 0 }}>
+            <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ fontSize: 12, fontWeight: 500, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {user.displayName || "User"}
               </div>
@@ -207,51 +227,34 @@ export default function Sidebar({ view, setView, levelNum, overallRank, user, on
                 {user.email}
               </div>
             </div>
-          </div>
-
-          {/* Dev unlock for the optional, paid AI Agent feature.
-              In production this gate would be flipped by a real billing event. */}
-          <button
-            onClick={() => onToggleAgent?.()}
-            title={aiAgentEnabled ? "AI Agent unlocked (dev). Click to lock." : "AI Agent locked. Click to unlock for testing."}
-            style={{
-              width: "100%",
-              display: "flex", justifyContent: "space-between", alignItems: "center",
-              padding: "7px 12px",
-              fontSize: 10,
-              fontFamily: "var(--font-mono)",
-              letterSpacing: "0.08em",
-              border: `1px solid ${aiAgentEnabled ? "var(--accent)" : "var(--border)"}`,
-              borderRadius: 6,
-              background: aiAgentEnabled ? "var(--accent-dim)" : "transparent",
-              color: aiAgentEnabled ? "var(--accent)" : "var(--text-tertiary)",
-              cursor: "pointer",
-              marginBottom: 5,
-              transition: "all 0.15s",
-              boxShadow: aiAgentEnabled ? "0 0 8px var(--accent-glow)" : "none",
-            }}
-          >
-            <span>◆ AI AGENT</span>
-            <span style={{ fontWeight: 700 }}>{aiAgentEnabled ? "ON" : "PRO"}</span>
           </button>
-
-          <button
-            onClick={() => setKeysOpen(true)}
-            style={{ ...S.ghostBtn, width: "100%", fontSize: 11, padding: "6px 12px", textAlign: "left", letterSpacing: "0.04em", fontFamily: "var(--font-mono)", marginBottom: 5, color: "var(--text-tertiary)" }}
-          >◇ Claude Connector</button>
-
-          <button
-            onClick={closeIfDrawer(() => { if (window.confirm("Reset all progress?")) onReset(); })}
-            style={{ ...S.ghostBtn, width: "100%", fontSize: 11, padding: "6px 12px", textAlign: "left", letterSpacing: "0.04em", fontFamily: "var(--font-mono)", marginBottom: 5, color: "var(--text-tertiary)" }}
-          >Start Over</button>
-          <button
-            onClick={closeIfDrawer(onSignOut)}
-            style={{ ...S.ghostBtn, width: "100%", fontSize: 11, padding: "6px 12px", textAlign: "left", letterSpacing: "0.04em", fontFamily: "var(--font-mono)" }}
-          >Sign out</button>
+          {onSignOut && (
+            <button
+              onClick={closeIfDrawer(onSignOut)}
+              title="Sign out"
+              style={{
+                flexShrink: 0,
+                padding: "0 14px",
+                background: "transparent",
+                border: "none",
+                borderLeft: "1px solid var(--border)",
+                color: "var(--text-tertiary)",
+                cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                transition: "color 0.15s, background 0.15s",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = "var(--red)"; e.currentTarget.style.background = "rgba(239,68,68,0.06)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-tertiary)"; e.currentTarget.style.background = "transparent"; }}
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M10 11L13 8L10 5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M13 8H6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M8 14H3.5C2.67157 14 2 13.3284 2 12.5V3.5C2 2.67157 2.67157 2 3.5 2H8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+          )}
         </div>
       </aside>
-
-      {keysOpen && <ApiKeysModal onClose={() => setKeysOpen(false)} />}
     </>
   );
 }

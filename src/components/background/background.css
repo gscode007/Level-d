@@ -1,0 +1,48 @@
+/* ============================================================================
+   Reactive background — CSS keyframes & body-class hooks
+   ----------------------------------------------------------------------------
+   Loaded once by ReactiveBackground.jsx. All keyframes animate only opacity
+   and transform so the compositor can promote them. JS never touches these
+   animations; the components only render styles + className.
+   ========================================================================= */
+
+/* TierAura breathe — opacity oscillation. Scale stays the same so the aura's
+   apparent footprint doesn't pump (which would feel anxious, not alive). */
+@keyframes bg-aura-breathe {
+  0%, 100% { opacity: var(--aura-min-opacity); }
+  50%      { opacity: var(--aura-max-opacity); }
+}
+
+/* ThresholdVignette gold pulse — slow opacity rise/fall when the threshold
+   is open. Replaced when the user opts out of motion. */
+@keyframes bg-vignette-pulse {
+  0%, 100% { opacity: 0.65; }
+  50%      { opacity: 1.0; }
+}
+
+/* Supernova corona breathe — opacity + a SMALL scale (±4%). */
+@keyframes bg-supernova-corona {
+  0%, 100% { opacity: 0.92; transform: translate(-50%, -50%) scale(1); }
+  50%      { opacity: 1.0;  transform: translate(-50%, -50%) scale(1.04); }
+}
+
+/* Supernova light-shaft pulse — independent of the corona. */
+@keyframes bg-supernova-shaft {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 0.9;  }
+}
+
+/* Constellation star flare — short scale + opacity burst, then settle.
+   The canvas manages the lit state; this keyframe exists only for the
+   reduced-motion fallback to render the lit dot statically. */
+@keyframes bg-star-settle {
+  0%   { opacity: 0.0; transform: scale(0.4); }
+  20%  { opacity: 1.0; transform: scale(1.6); }
+  100% { opacity: 0.9; transform: scale(1.0); }
+}
+
+/* Suppress the body's blue dotted radial pattern while the background is
+   mounted. Re-applied via a body class so unmounting (logout) restores it. */
+body.has-reactive-bg {
+  background-image: none;
+}

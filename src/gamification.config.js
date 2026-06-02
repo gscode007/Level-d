@@ -22,6 +22,16 @@
  *  boss.habitCompletionRate    0.85  ≥85% completion over trailing weeks
  *  boss.trailingWeeks          3
  *  boss.signatureQuestsRequired 1    signature quests completed in the chapter
+ *
+ *  ── Arc / Rank / Level progression (additive layer) ─────────────────────
+ *  progression.baseThreshold   1800  XP a strong performer earns in ~3 weeks
+ *                                    (see ranks[R].xpMult for per-rank scaling)
+ *  progression.ranks           per-rank dual-gate requirements (XP mult,
+ *                              completion rate, trailing window, signature
+ *                              requirement, qualifying levels to advance)
+ *  progression.arcCompletion   how many consecutive S-rank qualifying levels
+ *                              must be cleared before the user may declare
+ *                              the arc complete
  */
 
 export const DEFAULT_GAMIFICATION_CONFIG = {
@@ -84,6 +94,91 @@ export const DEFAULT_GAMIFICATION_CONFIG = {
     // Layer 3: per-user completion rate limit (sliding window).
     rateLimit: { completionsPerMinute: 30 },
   },
+
+  // ── Arc / Rank / Level progression ───────────────────────────────────
+  // Additive layer ON TOP of the existing chapter system. Inactive by default;
+  // engaged when the user calls `start_arc`. While inactive, advance_level
+  // behaves exactly as before (the legacy single-gate path).
+  //
+  // baseThreshold is the XP a "strong performer" can earn in ~3 weeks at rank
+  // E (5 daily Standard×Medium habits ≈ 17 XP/completion × 105 completions ≈
+  // 1785 raw, ~1900 with streak ramp). Per-rank XP gate = baseThreshold × xpMult.
+  //
+  // Each rank object defines:
+  //   xpMult       — multiplier on baseThreshold for the level XP gate
+  //   completion   — min trailing per-week habit completion rate
+  //   windowWeeks  — number of trailing FULL weeks evaluated (natural floor on
+  //                  how short a level can be at this rank)
+  //   signature    — extra signature requirement spec; { kind: "none" } means
+  //                  Gate-2 skips the signature sub-check
+  //   qualifyingToAdvance — qualifying levels at this rank required to promote
+  //                          to the next rank. S has no auto-advance (Infinity).
+  //
+  // Signature spec kinds (extensible):
+  //   { kind: "none" }
+  //   { kind: "signatureQuests", count: N, band: "any"|"small"|"medium"|"large" }
+  //   { kind: "composite", requirements: [...subspecs] }
+  //   { kind: "milestonesCompleted", count: N }
+  //   { kind: "streakAchieved", days: 21 }
+  //   { kind: "surgePct", min: 0.40 } — share of in-level habit completions that
+  //                                     were surge completions
+  //
+  // Rank rules enforced in code (src/gamification/rank.js):
+  //   - Rank NEVER drops. Non-qualifying level => no change to rank/counter.
+  //   - Every level that ADVANCES is by definition qualifying (both gates met).
+  //   - S is the ceiling. arcCompletion.consecutiveSRankLevels gates user-
+  //     declared arc completion; no auto-promotion past S.
+  progression: {
+    baseThreshold: 1800,
+    ranks: {
+      E: {
+        xpMult: 1.0,  completion: 0.80, windowWeeks: 3,
+        signature: { kind: "none" },
+        qualifyingToAdvance: 3,
+      },
+      D: {
+        xpMult: 1.1,  completion: 0.83, windowWeeks: 3,
+        signature: { kind: "signatureQuests", count: 1, band: "any" },
+        qualifyingToAdvance: 3,
+      },
+      C: {
+        xpMult: 1.2,  completion: 0.85, windowWeeks: 3,
+        signature: { kind: "signatureQuests", count: 1, band: "large" },
+        qualifyingToAdvance: 3,
+      },
+      B: {
+        xpMult: 1.3,  completion: 0.88, windowWeeks: 4,
+        signature: { kind: "composite", requirements: [
+          { kind: "signatureQuests", count: 1, band: "large" },
+          { kind: "milestonesCompleted", count: 1 },
+        ]},
+        qualifyingToAdvance: 4,
+      },
+      A: {
+        xpMult: 1.5,  completion: 0.90, windowWeeks: 4,
+        signature: { kind: "composite", requirements: [
+          { kind: "signatureQuests", count: 1, band: "large" },
+          { kind: "milestonesCompleted", count: 1 },
+          { kind: "streakAchieved", days: 21 },
+        ]},
+        qualifyingToAdvance: 5,
+      },
+      S: {
+        xpMult: 1.75, completion: 0.92, windowWeeks: 4,
+        signature: { kind: "composite", requirements: [
+          { kind: "signatureQuests", count: 1, band: "large" },
+          { kind: "milestonesCompleted", count: 1 },
+          { kind: "streakAchieved", days: 21 },
+          { kind: "surgePct", min: 0.40 },
+        ]},
+        // Infinity → never auto-advance. Arc completion is user-declared.
+        qualifyingToAdvance: Infinity,
+      },
+    },
+    arcCompletion: {
+      consecutiveSRankLevels: 3,
+    },
+  },
 };
 
 function num(v, fallback) {
@@ -125,6 +220,36 @@ export function getGamificationConfig(state) {
       docSizeWarnBytes: num(o.limits?.docSizeWarnBytes, d.limits.docSizeWarnBytes),
       rateLimit: {
         completionsPerMinute: num(o.limits?.rateLimit?.completionsPerMinute, d.limits.rateLimit.completionsPerMinute),
+      },
+    },
+    // Progression overrides are merged shallowly per-rank. Unknown rank keys
+    // fall back to defaults so a malformed override cannot break gate math or
+    // make the user unadvanceable.
+    progression: {
+      baseThreshold: num(o.progression?.baseThreshold, d.progression.baseThreshold),
+      ranks: Object.fromEntries(
+        Object.entries(d.progression.ranks).map(([rk, def]) => {
+          const ov = o.progression?.ranks?.[rk] || {};
+          return [rk, {
+            xpMult:      num(ov.xpMult,      def.xpMult),
+            completion:  num(ov.completion,  def.completion),
+            windowWeeks: num(ov.windowWeeks, def.windowWeeks),
+            // Signature spec is taken whole or not at all — partial merges
+            // would silently weaken the gate. Validate shape minimally.
+            signature: (ov.signature && typeof ov.signature === "object" && typeof ov.signature.kind === "string")
+              ? ov.signature
+              : def.signature,
+            qualifyingToAdvance: typeof ov.qualifyingToAdvance === "number" && ov.qualifyingToAdvance > 0
+              ? ov.qualifyingToAdvance
+              : def.qualifyingToAdvance,
+          }];
+        })
+      ),
+      arcCompletion: {
+        consecutiveSRankLevels: num(
+          o.progression?.arcCompletion?.consecutiveSRankLevels,
+          d.progression.arcCompletion.consecutiveSRankLevels,
+        ),
       },
     },
   };

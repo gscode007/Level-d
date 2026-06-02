@@ -3,9 +3,19 @@
 :root {
   color-scheme: dark;
   --bg: #080E1A;
-  --surface: #0F1B2D;
-  --surface-2: #152234;
-  --border: #1C2E48;
+  /* UI-V2 fix: the reactive background replaces the original body dotted
+     bg, and the time-of-day tint slides the perceived backdrop around.
+     Surface was lifted slightly (from #0F1B2D) so panels stay distinct
+     against ALL tints without depending on a strong border. Surface-2
+     follows the same logic so nested cards still read above surface. */
+  --surface: #131F35;
+  --surface-2: #18263C;
+  /* Phase 3 (revised): panel border is a soft white hairline so edges read
+     across the time-of-day tint AND the Supernova void. First pass at 0.06
+     was too faint — panels disappeared into the bg. 0.12 restores card
+     contrast without going back to the old slate-blue tint.
+     theme.config.panel.border records the canonical token. */
+  --border: rgba(255, 255, 255, 0.12);
   --border-light: #172742;
   --text-primary: #E8EEFF;
   --text-secondary: #7A93B4;

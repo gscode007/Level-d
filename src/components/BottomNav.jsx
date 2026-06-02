@@ -1,10 +1,15 @@
+import { NAV_ICONS } from "./icons/NavIcons";
+import { THEME_CONFIG } from "../theme.config.js";
+
 const NAV = [
-  { id: "dashboard", label: "Dashboard", icon: "⊞" },
-  { id: "goals",     label: "Goals",     icon: "◎" },
-  { id: "history",   label: "History",   icon: "≡" },
+  { id: "dashboard", label: "Today"    },
+  { id: "goals",     label: "Goals"    },
+  { id: "history",   label: "History"  },
+  { id: "settings",  label: "Settings" },
 ];
 
 export default function BottomNav({ view, setView }) {
+  const iconSize = THEME_CONFIG.navIcons.bottomNavPx;
   return (
     <nav style={{
       position: "fixed",
@@ -18,8 +23,9 @@ export default function BottomNav({ view, setView }) {
       zIndex: 200,
       paddingBottom: "env(safe-area-inset-bottom)",
     }}>
-      {NAV.map(({ id, label, icon }) => {
+      {NAV.map(({ id, label }) => {
         const active = view === id;
+        const Icon = NAV_ICONS[id];
         return (
           <button
             key={id}
@@ -36,22 +42,16 @@ export default function BottomNav({ view, setView }) {
               cursor: "pointer",
               padding: "6px 0",
               borderTop: `2px solid ${active ? "var(--accent)" : "transparent"}`,
-              transition: "border-color 0.15s",
+              transition: "border-color 0.15s, color 0.15s",
+              color: active ? "var(--accent)" : "var(--text-tertiary)",
             }}
           >
-            <span style={{
-              fontSize: 18,
-              color: active ? "var(--accent)" : "var(--text-tertiary)",
-              transition: "color 0.15s",
-              lineHeight: 1,
-            }}>{icon}</span>
+            {Icon && <Icon size={iconSize} />}
             <span style={{
               fontSize: 9,
               fontFamily: "var(--font-mono)",
               fontWeight: 600,
               letterSpacing: "0.06em",
-              color: active ? "var(--accent)" : "var(--text-tertiary)",
-              transition: "color 0.15s",
               textTransform: "uppercase",
             }}>{label}</span>
           </button>

@@ -23,6 +23,8 @@ import { resolveTimeZone, tzToday } from "../src/gamification/time.js";
 import { completeHabitTransactional, completeQuestTransactional } from "../src/server/completions.js";
 import { initSentry, captureError } from "../src/server/sentry.js";
 import { checkCompletionRateLimit } from "../src/server/ratelimit.js";
+import { applyQualifyingLevel, levelsToNextRank, rankRequirements } from "../src/gamification/rank.js";
+import { evaluateGates, progressionSummary } from "../src/gamification/progression.js";
 
 const RATE_LIMITED_TOOLS = new Set(["complete_habit", "complete_quest"]);
 
@@ -115,6 +117,74 @@ function currentLevel(state) {
   return (state.levels || []).find(l => l.id === state.currentLevelId) || state.levels?.[0];
 }
 
+// ── Arc / progression helpers ───────────────────────────────────────────────
+// An arc is "active" when the user has called start_arc and not yet
+// complete_arc'd. While inactive, advance_level falls back to its legacy
+// single-gate behavior so existing users see no change.
+function isArcActive(state) {
+  return state?.arc?.status === "active";
+}
+
+// Per-arc subcollection paths. Each arc is its own doc so we can hold per-arc
+// history (a future feature like "review past arcs") without growing the root
+// user doc — same pattern as the Layer-2 xpAudit subcollection.
+function arcDocPath(uid, arcId)   { return `users/${uid}/arcs/${arcId}`; }
+function levelsCollPath(uid)      { return `users/${uid}/levels`; }
+function levelDocPath(uid, lvlId) { return `users/${uid}/levels/${lvlId}`; }
+
+// Reads xpAudit since `sinceTs` and returns { totalCompletions, surgeCompletions }.
+// Only used for the S-rank `surgePct` signature sub-check; other ranks don't
+// touch this query. A completion is "surge" iff its persisted breakdown shows
+// surgeMultiplier > 1 (the only persisted signal — see src/server/audit.js).
+async function loadSurgeStatsSince(uid, sinceTs) {
+  if (!sinceTs) return { totalCompletions: 0, surgeCompletions: 0 };
+  const snap = await db()
+    .collection(`users/${uid}/xpAudit`)
+    .where("kind", "==", "habit_completion")
+    .where("ts", ">=", sinceTs)
+    .get();
+  let total = 0, surge = 0;
+  snap.forEach(d => {
+    total++;
+    const mult = d.get("breakdown")?.surgeMultiplier;
+    if (typeof mult === "number" && mult > 1) surge++;
+  });
+  return { totalCompletions: total, surgeCompletions: surge };
+}
+
+// Convenience: evaluate gates for the current level, fetching surge stats lazily
+// only when the current rank needs them (S today, plus any future rank that
+// references surgePct).
+async function evaluateGatesForCurrent(uid, state, lv, cfg) {
+  const rank = state?.rank?.current || "E";
+  const needsSurge = rankRefsSurgePct(rankRequirements(rank, cfg)?.signature);
+  const extras = {};
+  if (needsSurge) {
+    extras.surgeStats = await loadSurgeStatsSince(uid, lv?.startedAt || 0);
+  }
+  return evaluateGates(state, lv, rank, cfg, extras);
+}
+
+function rankRefsSurgePct(sig) {
+  if (!sig) return false;
+  if (sig.kind === "surgePct") return true;
+  if (sig.kind === "composite") return (sig.requirements || []).some(rankRefsSurgePct);
+  return false;
+}
+
+// Decorate a level with arc metadata. Pure — does not mutate.
+function stampLevelForArc(level, { arcId, rank, sequenceInRank, sequenceInArc }) {
+  return {
+    ...level,
+    arcId,
+    rank,
+    sequenceInRank,
+    sequenceInArc,
+    displayName: `Level ${sequenceInArc}`,
+    title: `Level ${sequenceInArc}`, // system-set, not user-customizable under arc mode
+  };
+}
+
 // ── MCP tool definitions ────────────────────────────────────────────────────
 const TOOLS = [
   {
@@ -129,7 +199,7 @@ const TOOLS = [
   },
   {
     name: "get_identity_portrait",
-    description: "Returns the user's identity portrait: chapter title, identity statements per dimension, scores, ranks, and the strongest emerging identity.",
+    description: "Returns the user's identity portrait: chapter title, identity statements per dimension, scores, ranks, and the strongest emerging identity. When an arc is active, also includes a `progression` block with the arc goal, current rank + qualifying-levels-toward-next-rank, the level's display name (e.g. 'Level 4'), and the dual-gate evaluation (XP gate current/required/met + boss gate completion-rate/signature/met + canAdvance).",
     inputSchema: { type: "object", properties: {} },
   },
   {
@@ -181,7 +251,7 @@ const TOOLS = [
   },
   {
     name: "update_chapter",
-    description: "Patches the current chapter's setup (title, identity statements, weights, required rank). Partial updates allowed — pass only the fields you want to change. Use markSetupComplete=true to also dismiss the SetupWizard (useful when filling in setup for a brand new user). The Level-d browser tab does not auto-refresh; the user must reload to see changes.",
+    description: "Patches the current chapter's setup (title, identity statements, weights, required rank). Partial updates allowed — pass only the fields you want to change. Use markSetupComplete=true to also dismiss the SetupWizard (useful when filling in setup for a brand new user). The Level-d browser tab does not auto-refresh; the user must reload to see changes. NOTE: when an arc is active, the `title` field is rejected — levels are system-named 'Level N'. Identity statements, weights, and requiredRank stay editable.",
     inputSchema: {
       type: "object",
       properties: {
@@ -203,11 +273,11 @@ const TOOLS = [
   },
   {
     name: "advance_level",
-    description: "Creates a new chapter (the next level). Resets per-chapter scores, streaks, and completions, but preserves history (the prior level stays in state.levels). If you provide ALL of title, categoryGoals, weights, and requiredRank, setupDone is automatically marked true so the user can start tracking immediately. Otherwise the SetupWizard will show on next app load. The browser tab does not auto-refresh.",
+    description: "Creates the next level. WITHOUT an active arc (legacy path) it simply creates a new chapter and resets per-chapter scores/streaks/completions. WITH an active arc it first evaluates the dual-gate (XP + boss) against the user's current rank; if either gate fails it returns {ok:false, canAdvance:false, gates:{...}} WITHOUT advancing and WITHOUT throwing — call get_identity_portrait to see exactly what's missing. On gate pass: writes the completed level to users/{uid}/levels, may promote the rank (E→D→C→B→A→S; never drops; S is the ceiling), creates the next level with the system-set name 'Level N', and resets per-chapter scores. Under an active arc, the `title` arg is ignored (levels are system-named). categoryGoals/weights are still respected.",
     inputSchema: {
       type: "object",
       properties: {
-        title: { type: "string", description: "Chapter name for the new level." },
+        title: { type: "string", description: "Chapter name for the new level. IGNORED when an arc is active — levels are system-named 'Level N'." },
         categoryGoals: {
           type: "object",
           description: "Identity statement per USER_CATEGORY dimension.",
@@ -218,7 +288,29 @@ const TOOLS = [
           description: "Weight % per dimension. If provided, MUST include all 5 USER_CATEGORIES and sum to 100.",
           additionalProperties: { type: "integer", minimum: 0, maximum: 100 },
         },
-        requiredRank: { type: "string", enum: RANKS },
+        requiredRank: { type: "string", enum: RANKS, description: "Legacy single-gate threshold. Vestigial when an arc is active (the arc's rank-driven dual-gate governs advancement)." },
+      },
+    },
+  },
+  {
+    name: "start_arc",
+    description: "Starts a new arc — the top-level master goal that frames a multi-year journey. Only ONE arc can be active at a time; calling this while an arc is active returns an error. On start: the user's current chapter is relabeled 'Level 1' and stamped as the first level of the new arc (existing XP/habits/quests are preserved), and the user's progression rank is initialized to E. From then on, advance_level enforces a rank-driven dual-gate (XP threshold × rank multiplier, plus a trailing-window habit completion rate and a rank-specific signature requirement). Rank climbs E → D → C → B → A → S and never drops. S is the ceiling; arc completion is user-declared via complete_arc.",
+    inputSchema: {
+      type: "object",
+      required: ["goal"],
+      properties: {
+        goal: { type: "string", description: "The master goal that defines this arc (3–8 year aspiration). Short and concrete." },
+      },
+    },
+  },
+  {
+    name: "complete_arc",
+    description: "Declares the active arc complete. Only valid when the user is at rank S AND has cleared the configured number of consecutive qualifying S-rank levels (3 by default). Requires confirm=true so the call is intentional. Marks the arc complete and stamps completedAt; does NOT auto-start a new arc.",
+    inputSchema: {
+      type: "object",
+      required: ["confirm"],
+      properties: {
+        confirm: { type: "boolean", description: "Must be literally true to proceed. Guards against accidental completion." },
       },
     },
   },
@@ -275,7 +367,7 @@ const TOOLS = [
   },
   {
     name: "add_quest",
-    description: "Creates a one-off quest (completable once), separate from recurring habits. XP is a flat reward from a band: small / medium / large. Mark signature=true for quests that define what leveling up means (these count toward a chapter's boss challenge). Links to the current chapter by default.",
+    description: "Creates a one-off quest (completable once), separate from recurring habits. XP is a flat reward from a band: small / medium / large. Mark signature=true for quests that define what advancement looks like (these count toward this level's trial). Links to the current level by default.",
     inputSchema: {
       type: "object",
       required: ["title", "dimension"],
@@ -342,7 +434,7 @@ async function toolGetIdentityPortrait(uid) {
     weight: lv.weights?.[cat] || 0,
   }));
   const strongest = [...dims].sort((a, b) => b.score - a.score)[0];
-  return {
+  const base = {
     chapterTitle: lv.title,
     levelNumber: lv.num,
     requiredRank: lv.requiredRank,
@@ -350,6 +442,18 @@ async function toolGetIdentityPortrait(uid) {
     strongestDimension: strongest?.dimension,
     strongestIdentity: strongest?.identity,
   };
+  // When an arc is active, also expose the progression block (additive — the
+  // legacy fields above remain so existing connectors don't break).
+  if (isArcActive(state)) {
+    const cfg = getGamificationConfig(state);
+    const extras = {};
+    const rank = state?.rank?.current || "E";
+    if (rankRefsSurgePct(rankRequirements(rank, cfg)?.signature)) {
+      extras.surgeStats = await loadSurgeStatsSince(uid, lv.startedAt || 0);
+    }
+    base.progression = progressionSummary(state, lv, cfg, extras);
+  }
+  return base;
 }
 
 async function toolGetWeeklySummary(uid) {
@@ -516,6 +620,12 @@ async function toolUpdateChapter(uid, args) {
   const lv = currentLevel(state);
   if (!lv) throw new Error("No active chapter.");
 
+  // Levels under an active arc are system-named ("Level N"). Reject explicit
+  // title changes so the user can't drift the data model away from arc-mode.
+  if (args.title !== undefined && isArcActive(state)) {
+    throw new Error("Levels are system-named while an arc is active (the title is automatically 'Level N'). Remove the `title` argument and try again.");
+  }
+
   const patch = {};
   const updated = [];
   if (args.title !== undefined)         { patch.title = args.title; updated.push("title"); }
@@ -548,14 +658,148 @@ async function toolUpdateChapter(uid, args) {
 }
 
 async function toolAdvanceLevel(uid, args = {}) {
+  // Strip `title` from validation/patch under arc mode (system-named levels).
+  // We still read it lower so we can warn the caller it was ignored.
   const errors = validateChapterPatch(args);
   if (errors.length) throw new Error(errors.join("; "));
 
   const state = await loadUser(uid);
+  const lv = currentLevel(state);
+
+  // ── Arc-active path — evaluate the rank dual-gate before advancing ────
+  if (isArcActive(state) && lv) {
+    const cfg = getGamificationConfig(state);
+    const gates = await evaluateGatesForCurrent(uid, state, lv, cfg);
+    if (!gates.canAdvance) {
+      // No throw — return structured status so the caller can show the user
+      // exactly what's missing. Response intentionally additive.
+      return {
+        ok: false,
+        canAdvance: false,
+        rank: {
+          current: state.rank.current,
+          qualifyingLevelsAtRank: state.rank.qualifyingLevelsAtRank,
+          levelsToNextRank: levelsToNextRank(state.rank, cfg),
+        },
+        level: {
+          displayName: lv.displayName || lv.title,
+          sequenceInArc: lv.sequenceInArc || null,
+          rank: lv.rank || null,
+        },
+        gates,
+        note: "Gate not met. Level has NOT advanced. Inspect `gates.xp` and `gates.boss` to see what's still required.",
+      };
+    }
+
+    // Both gates passed → archive the just-completed level to the subcollection,
+    // promote rank if the qualifying threshold was hit, and create the next
+    // system-named level.
+    const rankBefore = { ...state.rank };
+    const rankAfter  = applyQualifyingLevel(rankBefore, cfg);
+
+    const completedDoc = {
+      arcId: state.arc.id,
+      levelId: lv.id,
+      displayName: lv.displayName || `Level ${lv.sequenceInArc || 1}`,
+      rank: rankBefore.current,
+      sequenceInRank: lv.sequenceInRank || 1,
+      sequenceInArc:  lv.sequenceInArc  || 1,
+      startedAt:   lv.startedAt || null,
+      completedAt: Date.now(),
+      xpAtCompletion: gates.xp.current,
+      // Phase 10: per-dimension catScores at completion (radar delta overlay).
+      catScoresAtCompletion: { ...(state.catScores || {}) },
+      gatesAtCompletion: gates,
+      promoted: rankAfter.promoted,
+      promotedTo: rankAfter.promoted ? rankAfter.current : null,
+    };
+    await db().doc(levelDocPath(uid, lv.id)).set(completedDoc);
+
+    const nextSequenceInArc  = (lv.sequenceInArc || 1) + 1;
+    const nextSequenceInRank = rankAfter.promoted ? 1 : (lv.sequenceInRank || 1) + 1;
+
+    const baseLevel = {
+      id: genId(),
+      num: (state.levels?.length || 0) + 1,
+      categoryGoals: {
+        ...Object.fromEntries(ALL_CATEGORIES.map(c => [c, ""])),
+        ...(args.categoryGoals || {}),
+      },
+      weights: args.weights
+        ? normalizeWeights(args.weights)
+        : (lv.weights || {
+            ...Object.fromEntries(USER_CATEGORIES.map(c => [c, Math.floor(100 / USER_CATEGORIES.length)])),
+            Resilience: 0,
+          }),
+      requiredRank: args.requiredRank || lv.requiredRank || "A",
+      goals: [],
+      startedAt: Date.now(),
+    };
+    const newLevel = stampLevelForArc(baseLevel, {
+      arcId: state.arc.id,
+      rank: rankAfter.current,
+      sequenceInRank: nextSequenceInRank,
+      sequenceInArc:  nextSequenceInArc,
+    });
+
+    const newState = {
+      ...state,
+      rank: { current: rankAfter.current, qualifyingLevelsAtRank: rankAfter.qualifyingLevelsAtRank },
+      levels: [...(state.levels || []), newLevel],
+      currentLevelId: newLevel.id,
+      // Under arc mode every advance is setup-complete (the arc carries the
+      // long-term intent; per-level setup wizard is unnecessary).
+      setupDone: true,
+      catScores: Object.fromEntries(ALL_CATEGORIES.map(c => [c, 0])),
+      catRanks:  Object.fromEntries(ALL_CATEGORIES.map(c => [c, "E"])),
+      streaks: {},
+      lastCompletions: {},
+      lastHabitDate: null,
+      decayAppliedOn: null,
+      consecutiveMissed: 0,
+      dailyCatXP: {},
+      lastWeeklyCheckin: null,
+    };
+    await saveUser(uid, newState);
+
+    const sRankConsecutive = rankAfter.current === "S" ? rankAfter.qualifyingLevelsAtRank : 0;
+    const arcCompletionReady = rankAfter.current === "S"
+      && sRankConsecutive >= cfg.progression.arcCompletion.consecutiveSRankLevels;
+
+    return {
+      ok: true,
+      canAdvance: true,
+      titleArgIgnored: args.title !== undefined ? true : undefined,
+      rank: {
+        before: rankBefore.current,
+        after: rankAfter.current,
+        promoted: rankAfter.promoted,
+        qualifyingLevelsAtRank: rankAfter.qualifyingLevelsAtRank,
+        levelsToNextRank: levelsToNextRank(rankAfter, cfg),
+      },
+      completedLevel: {
+        displayName: completedDoc.displayName,
+        rank: completedDoc.rank,
+        xpAtCompletion: completedDoc.xpAtCompletion,
+      },
+      newLevel: {
+        displayName: newLevel.displayName,
+        rank: newLevel.rank,
+        sequenceInRank: newLevel.sequenceInRank,
+        sequenceInArc:  newLevel.sequenceInArc,
+        weights: newLevel.weights,
+        categoryGoals: newLevel.categoryGoals,
+      },
+      arcCompletionReady,
+      note: arcCompletionReady
+        ? "Arc-completion threshold reached at S rank. Call complete_arc with confirm=true to mark the arc done."
+        : "New level active. User must reload Level-d to see it.",
+    };
+  }
+
+  // ── Legacy path (no arc) — preserve exact existing behavior ──────────
   const nextNum = (state.levels?.length || 0) + 1;
 
-  // Build the new level. mkLevel in src/utils.js does the same shape — kept
-  // inline here so this function has no client-bundle dependency.
   const newLevel = {
     id: genId(),
     num: nextNum,
@@ -609,6 +853,99 @@ async function toolAdvanceLevel(uid, args = {}) {
     note: fullSetup
       ? "New chapter active and fully set up. User must reload Level-d to see it."
       : "New chapter active but setup is incomplete — user will see the SetupWizard on next app load. Call update_chapter to fill in the remaining fields and pass markSetupComplete=true to skip the wizard.",
+  };
+}
+
+// ── Arc lifecycle: start_arc / complete_arc ────────────────────────────────
+async function toolStartArc(uid, args) {
+  const goal = (args?.goal || "").trim();
+  if (!goal) throw new Error("goal is required and must be a non-empty string");
+  if (goal.length > 280) throw new Error("goal must be 280 chars or fewer");
+
+  const state = await loadUser(uid);
+  if (isArcActive(state)) {
+    throw new Error(`An arc is already active ("${state.arc.goal}"). Complete it via complete_arc before starting a new one.`);
+  }
+  const lv = currentLevel(state);
+  if (!lv) throw new Error("No active chapter to anchor the new arc to.");
+
+  const arcId = genId();
+  const startDate = Date.now();
+  const arcDoc = {
+    id: arcId,
+    goal,
+    startDate,
+    status: "active",
+    completedAt: null,
+  };
+
+  // Decorate the user's CURRENT level as Level 1 of the new arc. Preserves
+  // accumulated XP / habits / streaks — the arc layer is additive.
+  const stampedCurrent = stampLevelForArc(lv, {
+    arcId,
+    rank: "E",
+    sequenceInRank: 1,
+    sequenceInArc:  1,
+  });
+  const newLevels = state.levels.map(l => l.id === lv.id ? stampedCurrent : l);
+
+  await db().doc(arcDocPath(uid, arcId)).set(arcDoc);
+
+  const newState = {
+    ...state,
+    arc: { id: arcId, goal, startDate, status: "active" },
+    rank: { current: "E", qualifyingLevelsAtRank: 0 },
+    levels: newLevels,
+  };
+  await saveUser(uid, newState);
+
+  return {
+    ok: true,
+    arc: { id: arcId, goal, startDate, status: "active" },
+    rank: { current: "E", qualifyingLevelsAtRank: 0 },
+    level: {
+      displayName: stampedCurrent.displayName,
+      rank: stampedCurrent.rank,
+      sequenceInRank: stampedCurrent.sequenceInRank,
+      sequenceInArc:  stampedCurrent.sequenceInArc,
+    },
+    note: "Arc started. The current chapter has been relabeled 'Level 1' and your rank set to E. Existing XP, habits, and quests are preserved. From now on, advance_level enforces the rank dual-gate.",
+  };
+}
+
+async function toolCompleteArc(uid, args) {
+  if (args?.confirm !== true) {
+    throw new Error("confirm must be literally true to complete the arc (guards against accidental calls).");
+  }
+  const state = await loadUser(uid);
+  if (!isArcActive(state)) throw new Error("No active arc to complete.");
+  const cfg = getGamificationConfig(state);
+  const needed = cfg.progression.arcCompletion.consecutiveSRankLevels;
+  const rank = state.rank || { current: "E", qualifyingLevelsAtRank: 0 };
+
+  if (rank.current !== "S") {
+    throw new Error(`Arc completion requires rank S; current rank is ${rank.current}.`);
+  }
+  if ((rank.qualifyingLevelsAtRank || 0) < needed) {
+    throw new Error(`Arc completion requires ${needed} consecutive qualifying S-rank levels; you have ${rank.qualifyingLevelsAtRank || 0}.`);
+  }
+
+  const completedAt = Date.now();
+  await db().doc(arcDocPath(uid, state.arc.id)).set(
+    { status: "complete", completedAt },
+    { merge: true }
+  );
+
+  const newState = {
+    ...state,
+    arc: { ...state.arc, status: "complete", completedAt },
+  };
+  await saveUser(uid, newState);
+
+  return {
+    ok: true,
+    arc: { id: state.arc.id, goal: state.arc.goal, status: "complete", completedAt },
+    note: "Arc marked complete. start_arc can now begin a new one.",
   };
 }
 
@@ -813,6 +1150,8 @@ const HANDLERS = {
   complete_habit:         toolCompleteHabit,
   update_chapter:         toolUpdateChapter,
   advance_level:          toolAdvanceLevel,
+  start_arc:              toolStartArc,
+  complete_arc:           toolCompleteArc,
   update_goal:            toolUpdateGoal,
   list_quests:            toolListQuests,
   add_quest:              toolAddQuest,

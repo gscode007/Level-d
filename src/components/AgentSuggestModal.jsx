@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { CAT_META } from "../constants";
 import { calcBaseXP } from "../utils";
-import { S } from "../styles";
+import styles from "../styles.module.css";
 
 /* ──────────────────────────────────────────────────────────────────────────
    AgentSuggestModal — calls /api/agent/generate, lets the user review the
@@ -183,8 +183,8 @@ export default function AgentSuggestModal({ level, existingGoalNames, onAddGoals
             <button
               onClick={handleAdd}
               disabled={selectedCount === 0}
+              className={styles.nextBtn}
               style={{
-                ...S.nextBtn,
                 marginTop: 18,
                 opacity: selectedCount === 0 ? 0.35 : 1,
               }}
@@ -204,7 +204,7 @@ function Section({ title, items, kindPrefix, selected, toggle, renderItem }) {
   if (!items || items.length === 0) return null;
   return (
     <div style={{ marginBottom: 18 }}>
-      <p style={{ ...S.panelLbl, marginBottom: 8 }}>{title} ({items.length})</p>
+      <p className={styles.panelLbl} style={{ marginBottom: 8 }}>{title} ({items.length})</p>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {items.map((item, i) => {
           const key = `${kindPrefix}-${i}`;
@@ -325,7 +325,8 @@ function ErrorBlock({ message, onRetry }) {
       </p>
       <button
         onClick={onRetry}
-        style={{ ...S.ghostBtn, marginTop: 12, fontSize: 11, padding: "6px 12px" }}
+        className={styles.ghostBtn}
+        style={{ marginTop: 12, fontSize: 11, padding: "6px 12px" }}
       >Retry</button>
     </div>
   );

@@ -1,10 +1,16 @@
-import { S } from "../styles";
+import styles from "../styles.module.css";
+import { LABELS } from "../theme.config.js";
 
 /**
- * Per-chapter boss challenge card. Opt-in: when disabled it shows a quiet
- * "enable" affordance; advancement is never gated unless the user turns it on.
+ * Per-level Trial card. Opt-in: when disabled, shows a quiet "enable"
+ * affordance; advancement is never gated unless the user turns it on.
+ *
+ * (Formerly "BossChallenge". User-facing language is now celestial — Trial
+ * gates the level's Threshold. Internal prop / field names — `bossEval`,
+ * `level.boss`, `evaluateBoss` — remain unchanged: they belong to the
+ * already-shipped Firestore schema and we don't migrate live data.)
  */
-export default function BossChallenge({ bossEval, onEnableBoss, onDisableBoss }) {
+export default function TrialPanel({ bossEval, onEnableBoss, onDisableBoss }) {
   if (!bossEval) return null;
 
   if (!bossEval.enabled) {
@@ -15,13 +21,12 @@ export default function BossChallenge({ bossEval, onEnableBoss, onDisableBoss })
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
           <div>
-            <div style={lbl}>⚔ BOSS CHALLENGE · OFF</div>
+            <div style={lbl}>{LABELS.trial.off}</div>
             <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4, lineHeight: 1.45 }}>
-              Optionally gate this chapter's advancement behind a composite goal:
-              sustained habit consistency plus a signature quest.
+              {LABELS.trial.description}
             </div>
           </div>
-          <button onClick={onEnableBoss} style={enableBtn}>Enable</button>
+          <button onClick={onEnableBoss} className={styles.ghostBtn} style={enableBtn}>Enable</button>
         </div>
       </div>
     );
@@ -34,7 +39,7 @@ export default function BossChallenge({ bossEval, onEnableBoss, onDisableBoss })
     <div style={{ ...cardBase, borderLeft: `2px solid ${accent}` }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
         <div style={{ ...lbl, color: accent }}>
-          ⚔ BOSS CHALLENGE · {met ? "CLEARED" : "IN PROGRESS"}
+          {met ? LABELS.trial.cleared : LABELS.trial.inProgress}
         </div>
         <button onClick={onDisableBoss} style={disableBtn}>Disable</button>
       </div>
@@ -54,9 +59,7 @@ export default function BossChallenge({ bossEval, onEnableBoss, onDisableBoss })
         fontSize: 11, fontFamily: "var(--font-mono)", letterSpacing: "0.04em",
         marginTop: 10, color: met ? "var(--green)" : "var(--text-tertiary)",
       }}>
-        {met
-          ? "◈ Boss cleared — advancement unlocked."
-          : "Meet both criteria to unlock advancement."}
+        {met ? LABELS.trial.passedNote : LABELS.trial.pendingNote}
       </div>
     </div>
   );
@@ -102,7 +105,6 @@ const lbl = {
 };
 
 const enableBtn = {
-  ...S.ghostBtn,
   flexShrink: 0,
   fontSize: 11, fontFamily: "var(--font-mono)", letterSpacing: "0.04em",
 };

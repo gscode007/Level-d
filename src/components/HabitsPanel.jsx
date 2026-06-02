@@ -3,7 +3,7 @@ import { CAT_META } from "../constants";
 import { todayStr, calcBaseXP, getThisWeekCount, getGoalIdentities } from "../utils";
 import { getGamificationConfig } from "../gamification.config.js";
 import { habitBaseXP, computeHabitXP } from "../gamification/xp.js";
-import { S } from "../styles";
+import styles from "../styles.module.css";
 import { useIsMobile } from "../hooks/useIsMobile";
 
 export default function HabitsPanel({ level, state, onCompleteHabitual, onResistQuit, onSuccumbQuit, onGoToGoals }) {
@@ -68,8 +68,7 @@ export default function HabitsPanel({ level, state, onCompleteHabitual, onResist
   }
 
   return (
-    <div style={{
-      ...S.panel,
+    <div className={styles.panel} style={{
       borderLeft: "2px solid var(--accent)",
       position: "relative",
       overflow: "hidden",
@@ -98,7 +97,7 @@ export default function HabitsPanel({ level, state, onCompleteHabitual, onResist
       {/* Header */}
       <div style={{ marginBottom: 14 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-          <p style={S.panelLbl}>Today's Habits</p>
+          <p className={styles.panelLbl}>Today's Habits</p>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {todayXP > 0 && (
               <span style={{
@@ -155,7 +154,7 @@ export default function HabitsPanel({ level, state, onCompleteHabitual, onResist
             <p style={{ fontSize: 13, color: "var(--text-tertiary)", marginBottom: 14 }}>
               No habits defined yet.
             </p>
-            <button style={S.ghostBtn} onClick={onGoToGoals}>+ Define habits</button>
+            <button className={styles.ghostBtn} onClick={onGoToGoals}>+ Define habits</button>
           </div>
         )}
 
@@ -334,7 +333,7 @@ export default function HabitsPanel({ level, state, onCompleteHabitual, onResist
       {/* ── Quit Habits section ── */}
       {quitGoals.length > 0 && (
         <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--border-light)" }}>
-          <p style={{ ...S.panelLbl, marginBottom: 8 }}>Quit Habits</p>
+          <p className={styles.panelLbl} style={{ marginBottom: 8 }}>Quit Habits</p>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {quitGoals.map(g => {
               const checked    = state.lastCompletions?.[g.id] === t;
@@ -404,8 +403,8 @@ export default function HabitsPanel({ level, state, onCompleteHabitual, onResist
         <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--border-light)" }}>
           <button
             onClick={onGoToGoals}
+            className={styles.ghostBtn}
             style={{
-              ...S.ghostBtn,
               width: "100%",
               fontSize: 11,
               fontFamily: "var(--font-mono)",

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { USER_CATEGORIES, CAT_META } from "../constants";
-import { S } from "../styles";
+import styles from "../styles.module.css";
 
 /* ──────────────────────────────────────────────────────────────────────────
    WeeklyCheckin — surfaces tension between identity statements and actual
@@ -160,11 +160,13 @@ export default function WeeklyCheckin({ level, weeklyVotes, onSubmit, onSkip, on
         <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
           <button
             onClick={onSkip}
-            style={{ ...S.backBtn, flex: "0 0 auto" }}
+            className={styles.backBtn}
+            style={{ flex: "0 0 auto" }}
           >Skip this week</button>
           <button
             onClick={handleSubmit}
-            style={{ ...S.nextBtn, flex: 1, marginTop: 0 }}
+            className={styles.nextBtn}
+            style={{ flex: 1, marginTop: 0 }}
           >Mark check-in complete</button>
         </div>
       </div>

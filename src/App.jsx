@@ -1,17 +1,20 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, query, orderBy, getDocs } from "firebase/firestore";
 import { auth, db, googleProvider } from "./firebase";
 import { getOverallScore, getRank, mkDefault, genId, mkLevel, applyResilienceDecay, reconcileQuestXP, calcBaseXP, getDailyCatXP, getThisWeekCount, getPrevWeekCount, canEditGoal, getWeeklyVotes, isCheckinDue } from "./utils";
 import { RANKS, CATEGORIES, USER_CATEGORIES, DAILY_XP_CAP } from "./constants";
 import { getGamificationConfig } from "./gamification.config.js";
 import { computeHabitXP, habitBaseXP, toCompletionRecord } from "./gamification/xp.js";
 import { evaluateBoss } from "./gamification/boss.js";
+import { evaluateGates } from "./gamification/progression.js";
+import { applyQualifyingLevel, levelsToNextRank } from "./gamification/rank.js";
+import { getTier, THEME_CONFIG } from "./theme.config.js";
 import { resolveTimeZone, detectTimeZone, tzToday, tzYesterday } from "./gamification/time.js";
 import { captureError } from "./observability/sentry.js";
 import { appendXpAudit } from "./observability/audit.js";
 import { estimateDocBytes } from "./gamification/docsize.js";
-import { S } from "./styles";
+import styles from "./styles.module.css";
 import LoginScreen from "./components/LoginScreen";
 import OAuthAuthorize from "./components/OAuthAuthorize";
 import SetupWizard from "./components/SetupWizard";
@@ -21,7 +24,10 @@ import Dashboard from "./components/Dashboard";
 import GoalsView from "./components/GoalsView";
 import HistoryView from "./components/HistoryView";
 import ReportsView from "./components/ReportsView";
+import SettingsView from "./components/SettingsView";
 import QuickNotePopup from "./components/QuickNotePopup";
+import AscensionMoment from "./components/AscensionMoment";
+import ReactiveBackground from "./components/background/ReactiveBackground";
 import { useIsMobile } from "./hooks/useIsMobile";
 import { useOnlineStatus } from "./hooks/useOnlineStatus";
 
@@ -47,6 +53,13 @@ export default function App() {
   const [addType, setAddType]       = useState("habitual");
   const [editingGoalId, setEditingGoalId] = useState(null);
   const [recentCompletion, setRecentCompletion] = useState(null); // { goalId, ts } for quick-note popup
+  // Phase 10: catScores from the level completed N levels back (default 3).
+  // null = not loaded yet or no history; the radar then shows "now" only.
+  const [historicalCatScores, setHistoricalCatScores] = useState(null);
+  // Phase 11: the celestial tier just reached on the most recent advance.
+  // null while no ascension is in flight; set to "Spark" / "Flare" / etc.
+  // when a tier-up fires; cleared by AscensionMoment.onDone.
+  const [ascensionTier, setAscensionTier] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(readCollapsed);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const touchStartX = useRef(0);
@@ -146,6 +159,36 @@ export default function App() {
     setDoc(doc(db, "users", user.uid), state).catch(e => { console.error(e); captureError(e, { where: "persistState", uid: user.uid }); });
   }, [state]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Phase 10: fetch the catScores from the level completed `levelsBack` levels
+  // back, so the identity portrait can overlay then-vs-now. Refreshes when the
+  // arc changes or a new level is archived (state.levels length changes).
+  // No-ops gracefully when there's no history yet.
+  useEffect(() => {
+    if (!user || !state?.arc?.id) { setHistoricalCatScores(null); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const colRef = collection(db, `users/${user.uid}/levels`);
+        const snap = await getDocs(query(colRef, orderBy("completedAt", "desc")));
+        // Only look within the current arc; older arcs don't compare cleanly.
+        const docs = snap.docs.filter(d => d.get("arcId") === state.arc.id);
+        const idx = THEME_CONFIG.radarHistory.levelsBack - 1; // 0-based
+        const target = docs[idx];
+        if (!target) { if (!cancelled) setHistoricalCatScores(null); return; }
+        const cs = target.get("catScoresAtCompletion");
+        if (!cs || cancelled) { if (!cancelled) setHistoricalCatScores(null); return; }
+        setHistoricalCatScores({
+          scores: cs,
+          atLevel: target.get("displayName") || "an earlier level",
+        });
+      } catch (e) {
+        console.error("[radarHistory] fetch failed:", e);
+        if (!cancelled) setHistoricalCatScores(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.uid, state?.arc?.id, state?.levels?.length]);
+
   // ── Auth actions ───────────────────────────────────────────────────────────
   async function handleSignIn() {
     setAuthError(null);
@@ -201,7 +244,13 @@ export default function App() {
   }, []);
 
   // ── Game actions ───────────────────────────────────────────────────────────
-  function finishSetup(title, categoryGoals, weights, requiredRank, goals = [], quests = []) {
+  // The wizard now collects an arc goal (the master 3–8 yr aspiration) as its
+  // first step and no longer prompts for a per-level requiredRank — under an
+  // arc, the rank dual-gate (XP × rank multiplier + boss + signature) governs
+  // advancement. finishSetup therefore: stamps the current level as Level 1
+  // of a freshly-started arc, initializes state.rank to E, and persists the
+  // arc summary to a per-arc subcollection (mirrors api/mcp.js#toolStartArc).
+  function finishSetup(arcGoal, categoryGoals, weights, goals = [], quests = []) {
     // Initial goals/quests are stamped locked:true → editable for the first 3
     // days of the level (canEditGoal), immutable after.
     const stampedGoals = goals.map(g => ({ ...g, id: genId(), completions: g.completions || [], locked: true }));
@@ -221,8 +270,45 @@ export default function App() {
         locked: true,
       };
     });
-    updLv({ title, categoryGoals, weights, requiredRank, goals: stampedGoals });
-    setState(s => ({ ...s, setupDone: true, quests: [...(s.quests || []), ...stampedQuests] }));
+
+    const goal = (arcGoal || "").trim();
+    if (goal && !state.arc) {
+      const arcId = genId();
+      const startDate = Date.now();
+      const arcDoc = { id: arcId, goal, startDate, status: "active", completedAt: null };
+      setDoc(doc(db, `users/${user.uid}/arcs/${arcId}`), arcDoc)
+        .catch(e => { console.error(e); captureError(e, { where: "createArc", uid: user.uid }); });
+
+      // Stamp the current chapter as Level 1 of the new arc. system-set title.
+      const stampedLevels = state.levels.map(l => l.id === state.currentLevelId ? {
+        ...l,
+        arcId,
+        rank: "E",
+        sequenceInRank: 1,
+        sequenceInArc:  1,
+        displayName: "Level 1",
+        title: "Level 1",
+        categoryGoals,
+        weights,
+        // requiredRank kept on the document for back-compat; vestigial under arc mode
+        requiredRank: l.requiredRank || "A",
+        goals: stampedGoals,
+      } : l);
+
+      setState(s => ({
+        ...s,
+        arc: { id: arcId, goal, startDate, status: "active" },
+        rank: { current: "E", qualifyingLevelsAtRank: 0 },
+        levels: stampedLevels,
+        setupDone: true,
+        quests: [...(s.quests || []), ...stampedQuests],
+      }));
+    } else {
+      // Fallback path — no arc goal supplied (legacy or already-arced user
+      // re-running the wizard). Preserves the pre-arc shape exactly.
+      updLv({ title: goal || "Becoming", categoryGoals, weights, requiredRank: "A", goals: stampedGoals });
+      setState(s => ({ ...s, setupDone: true, quests: [...(s.quests || []), ...stampedQuests] }));
+    }
     setView("dashboard");
   }
 
@@ -570,15 +656,91 @@ export default function App() {
       trailingWeeks: cfg.boss.trailingWeeks,
       signatureQuestsRequired: cfg.boss.signatureQuestsRequired,
     } });
-    notify("Boss challenge enabled");
+    notify("Trial enabled");
   }
 
   function disableBoss() {
     updLv({ boss: null });
-    notify("Boss challenge disabled");
+    notify("Trial disabled");
   }
 
   function advanceLevel() {
+    // Arc-active path: enforce the rank dual-gate, archive the completed
+    // level to its own subcollection doc, promote rank when the qualifying
+    // threshold is hit, and create the next system-named level.
+    if (state.arc?.status === "active") {
+      const cfg = getGamificationConfig(state);
+      const gates = evaluateGates(state, currentLevel, state.rank?.current || "E", cfg);
+      if (!gates.canAdvance) {
+        notify("Gate not met — keep going");
+        return;
+      }
+      const rankBefore = state.rank || { current: "E", qualifyingLevelsAtRank: 0 };
+      const rankAfter  = applyQualifyingLevel(rankBefore, cfg);
+
+      const nextSequenceInArc  = (currentLevel.sequenceInArc || 1) + 1;
+      const nextSequenceInRank = rankAfter.promoted ? 1 : (currentLevel.sequenceInRank || 1) + 1;
+
+      const baseNew = mkLevel(state.levels.length + 1);
+      const newLv = {
+        ...baseNew,
+        arcId: state.arc.id,
+        rank: rankAfter.current,
+        sequenceInRank: nextSequenceInRank,
+        sequenceInArc:  nextSequenceInArc,
+        displayName: `Level ${nextSequenceInArc}`,
+        title: `Level ${nextSequenceInArc}`,
+        requiredRank: currentLevel.requiredRank || "A",
+      };
+
+      // Archive completed level to a per-level subcollection doc (Layer 2
+      // pattern — keeps the root user doc small as arcs accumulate history).
+      const completedDoc = {
+        arcId: state.arc.id,
+        levelId: currentLevel.id,
+        displayName: currentLevel.displayName || `Level ${currentLevel.sequenceInArc || 1}`,
+        rank: rankBefore.current,
+        sequenceInRank: currentLevel.sequenceInRank || 1,
+        sequenceInArc:  currentLevel.sequenceInArc  || 1,
+        startedAt:   currentLevel.startedAt || null,
+        completedAt: Date.now(),
+        xpAtCompletion: gates.xp.current,
+        // Phase 10: per-dimension catScores at completion, so the
+        // identity-portrait can render a delta overlay against a past level.
+        catScoresAtCompletion: { ...state.catScores },
+        gatesAtCompletion: gates,
+        promoted: rankAfter.promoted,
+        promotedTo: rankAfter.promoted ? rankAfter.current : null,
+      };
+      setDoc(doc(db, `users/${user.uid}/levels/${currentLevel.id}`), completedDoc)
+        .catch(e => { console.error(e); captureError(e, { where: "archiveCompletedLevel", uid: user.uid }); });
+
+      setState(s => ({
+        ...s,
+        rank: { current: rankAfter.current, qualifyingLevelsAtRank: rankAfter.qualifyingLevelsAtRank },
+        levels: [...s.levels, newLv],
+        currentLevelId: newLv.id,
+        setupDone: true, // arc mode: per-level wizard is unnecessary
+        catScores: Object.fromEntries(CATEGORIES.map(c => [c, 0])),
+        catRanks: Object.fromEntries(CATEGORIES.map(c => [c, "E"])),
+        streaks: {},
+        lastCompletions: {},
+        lastHabitDate: null,
+        decayAppliedOn: null,
+        consecutiveMissed: 0,
+      }));
+      if (rankAfter.promoted) {
+        // Phase 11: the editorial Ascension moment replaces the bare toast
+        // for tier-ups. The toast is still useful for plain advances.
+        setAscensionTier(getTier(rankAfter.current).name);
+      } else {
+        notify(`Advanced to ${newLv.displayName}`);
+      }
+      setView("dashboard");
+      return;
+    }
+
+    // Legacy path — preserved exactly.
     const newLv = mkLevel(state.levels.length + 1);
     setState(s => ({
       ...s,
@@ -617,23 +779,58 @@ export default function App() {
 
   const overallScore  = getOverallScore(state.catScores, currentLevel.weights);
   const overallRank   = getRank(overallScore);
-  const levelComplete = RANKS.indexOf(overallRank) >= RANKS.indexOf(currentLevel.requiredRank || "A");
+  const legacyLevelComplete = RANKS.indexOf(overallRank) >= RANKS.indexOf(currentLevel.requiredRank || "A");
   // Opt-in boss gate. With no boss set, bossEval.enabled is false → canAdvance
-  // tracks levelComplete exactly as before. A set boss additionally requires met.
+  // tracks legacyLevelComplete exactly as before. A set boss additionally requires met.
   const bossEval      = evaluateBoss(state, currentLevel, getGamificationConfig(state));
-  const canAdvance    = levelComplete && (!bossEval.enabled || bossEval.met);
+  // When an arc is active, advancement is governed by the rank dual-gate
+  // (progression.js) rather than the legacy requiredRank+boss combo. Both
+  // bossEval and legacyLevelComplete remain wired for UI back-compat, but the
+  // advance button uses arcGates.canAdvance.
+  const cfgForArc     = getGamificationConfig(state);
+  const arcGates      = state.arc?.status === "active"
+    ? evaluateGates(state, currentLevel, state.rank?.current || "E", cfgForArc)
+    : null;
+  // The arc "view" rolled up for RankHero — pre-computes everything the bar
+  // and the big letter need so the component itself can stay dumb.
+  const arcView = state.arc?.status === "active" ? {
+    rank: state.rank?.current || "E",
+    qualifyingLevelsAtRank: state.rank?.qualifyingLevelsAtRank || 0,
+    qualifyingToAdvance: cfgForArc.progression.ranks[state.rank?.current || "E"].qualifyingToAdvance,
+    levelsToNext: levelsToNextRank(state.rank, cfgForArc),
+    nextRank: RANKS[RANKS.indexOf(state.rank?.current || "E") + 1] || null,
+    gates: arcGates,
+  } : null;
+  const levelComplete = arcGates ? arcGates.canAdvance : legacyLevelComplete;
+  const canAdvance    = arcGates
+    ? arcGates.canAdvance
+    : legacyLevelComplete && (!bossEval.enabled || bossEval.met);
+
+  // ── Reactive background props (pre-computed once per render) ────────────
+  // ReactiveBackground is presentational — it reads no state itself. We pass
+  // already-derived primitives so the component stays decoupled from data.
+  const completedQuestsCount = (state.quests || []).filter(q => q.status === "completed").length;
+  const completedMilestonesCount = (state.levels || []).reduce(
+    (sum, lv) => sum + (lv.goals || []).filter(g => g.type === "milestone" && g.completed === true).length,
+    0,
+  );
+  const maxStreakForBg = Math.max(0, ...Object.values(state.streaks || {}).map(Number).filter(n => Number.isFinite(n)));
+  const bgRank = state.rank?.current || overallRank;
+  const bgRankWindowWeeks = state.arc?.status === "active"
+    ? cfgForArc.progression.ranks[state.rank?.current || "E"]?.windowWeeks
+    : undefined;
 
   if (!state.setupDone) return <SetupWizard level={currentLevel} onFinish={finishSetup} />;
 
+  // Sidebar is now nav-only: settings live in /settings (Phase 7). The
+  // sign-out, reset, AI Agent, and BG Motion controls are reached via the
+  // profile chip in the sidebar footer → SettingsView.
   const sidebarProps = {
     view, setView,
     levelNum: currentLevel.num,
     overallRank,
     user,
     onSignOut: handleSignOut,
-    onReset: handleReset,
-    aiAgentEnabled: state.aiAgentEnabled === true,
-    onToggleAgent: () => setState(s => ({ ...s, aiAgentEnabled: !s.aiAgentEnabled })),
   };
 
   const pages = (
@@ -644,6 +841,7 @@ export default function App() {
           level={currentLevel}
           overallScore={overallScore}
           overallRank={overallRank}
+          arcView={arcView}
           levelComplete={levelComplete}
           canAdvance={canAdvance}
           bossEval={bossEval}
@@ -659,6 +857,7 @@ export default function App() {
           weeklyVotes={getWeeklyVotes(currentLevel)}
           onCompleteCheckin={completeWeeklyCheckin}
           onSkipCheckin={skipWeeklyCheckin}
+          historicalCatScores={historicalCatScores}
         />
       )}
       {view === "goals" && (
@@ -688,6 +887,21 @@ export default function App() {
       )}
       {view === "reports" && <ReportsView state={state} />}
       {view === "history" && <HistoryView state={state} />}
+      {view === "settings" && (
+        <SettingsView
+          user={user}
+          aiAgentEnabled={state.aiAgentEnabled === true}
+          onToggleAgent={() => setState(s => ({ ...s, aiAgentEnabled: !s.aiAgentEnabled }))}
+          reduceBackgroundMotion={state.reduceBackgroundMotion}
+          onToggleReduceMotion={() => setState(s => {
+            const cur = s.reduceBackgroundMotion;
+            const next = cur === undefined ? true : cur === true ? false : undefined;
+            return { ...s, reduceBackgroundMotion: next };
+          })}
+          onReset={handleReset}
+          onSignOut={handleSignOut}
+        />
+      )}
     </>
   );
 
@@ -697,7 +911,16 @@ export default function App() {
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "transparent", color: "var(--text-primary)", fontFamily: "'Geist', -apple-system, sans-serif" }}>
-      {toast && <div style={S.toast}>{toast}</div>}
+      <ReactiveBackground
+        rank={bgRank}
+        completedAchievements={completedQuestsCount + completedMilestonesCount}
+        thresholdOpen={canAdvance}
+        levelStartedAt={currentLevel?.startedAt || 0}
+        rankWindowWeeks={bgRankWindowWeeks}
+        longestStreak={maxStreakForBg}
+        reduceMotion={state.reduceBackgroundMotion}
+      />
+      {toast && <div className={styles.toast}>{toast}</div>}
       {!online && (
         <div style={{
           position: "fixed", bottom: 14, left: "50%", transform: "translateX(-50%)",
@@ -718,6 +941,13 @@ export default function App() {
           comeback={recentCompletion.comeback === true}
           onSubmit={note => addCompletionNote(recentCompletion.goalId, recentCompletion.ts, note)}
           onClose={() => setRecentCompletion(null)}
+        />
+      )}
+      {ascensionTier && (
+        <AscensionMoment
+          newTier={ascensionTier}
+          reduceMotionPref={state.reduceBackgroundMotion}
+          onDone={() => setAscensionTier(null)}
         />
       )}
 
@@ -780,7 +1010,7 @@ export default function App() {
           </div>
 
           <main
-            style={{ flex: 1, minWidth: 0, overflow: "auto", paddingTop: 66 }}
+            style={{ flex: 1, minWidth: 0, overflow: "auto", paddingTop: 66, position: "relative", zIndex: 5 }}
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
           >
@@ -795,7 +1025,7 @@ export default function App() {
             collapsed={sidebarCollapsed}
             onToggle={toggleSidebar}
           />
-          <main style={{ flex: 1, minWidth: 0, overflow: "auto" }}>
+          <main style={{ flex: 1, minWidth: 0, overflow: "auto", position: "relative", zIndex: 5 }}>
             {pages}
           </main>
           <RankPanel overallScore={overallScore} overallRank={overallRank} catScores={state.catScores} catRanks={state.catRanks} />

@@ -1,21 +1,44 @@
 import { CATEGORIES, CAT_META } from "../constants";
 
-export default function RadarChart({ catScores, size = 160, glowAccent = "var(--accent)" }) {
+/**
+ * RadarChart — five-axis radar with an optional historical OVERLAY (Phase 10).
+ *
+ *   catScores      — the user's current per-dimension XP (required)
+ *   compareScores  — optional; per-dimension XP from a past level. When
+ *                    present, a faint dotted polygon underlays the current
+ *                    shape so the user sees their growth.
+ *
+ * Both polygons share the same axis scale — the larger of the two max scores
+ * — so a shrinking dimension is visible as a smaller inset on the historical
+ * shape, and growth shows as the now-polygon EXPANDING past the then-polygon.
+ */
+export default function RadarChart({ catScores, compareScores, size = 160, glowAccent = "var(--accent)" }) {
   const cx = size / 2, cy = size / 2;
   const r  = size / 2 - 24;
   const N  = CATEGORIES.length;
-  const maxScore = Math.max(...CATEGORIES.map(c => catScores[c] || 0), 1);
+
+  const currScores = CATEGORIES.map(c => catScores?.[c] || 0);
+  const histScores = compareScores ? CATEGORIES.map(c => compareScores?.[c] || 0) : null;
+
+  const max = Math.max(1, ...currScores, ...(histScores || []));
 
   const getXY = (i, frac) => {
     const angle = -Math.PI / 2 + (2 * Math.PI * i) / N;
     return [cx + r * frac * Math.cos(angle), cy + r * frac * Math.sin(angle)];
   };
 
-  const fracs = CATEGORIES.map(c => Math.min((catScores[c] || 0) / maxScore, 1));
-  const dotPoints = CATEGORIES.map((c, i) => getXY(i, Math.max(fracs[i], 0.04)));
-  const dataPath  = dotPoints.map(([x, y], i) =>
-    `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`
-  ).join(" ") + "Z";
+  const polyPath = (scores) => {
+    const fracs = scores.map(s => Math.min(s / max, 1));
+    const pts = CATEGORIES.map((_, i) => getXY(i, Math.max(fracs[i], 0.04)));
+    return {
+      d: pts.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ") + "Z",
+      pts,
+      fracs,
+    };
+  };
+
+  const curr = polyPath(currScores);
+  const hist = histScores ? polyPath(histScores) : null;
 
   const ringPaths = [0.25, 0.5, 0.75, 1].map(f => {
     const pts = CATEGORIES.map((_, i) => getXY(i, f));
@@ -42,15 +65,27 @@ export default function RadarChart({ catScores, size = 160, glowAccent = "var(--
         );
       })}
 
-      {/* Data fill */}
-      <path d={dataPath} fill={`${glowAccent}18`} stroke={glowAccent} strokeWidth={1.5} />
+      {/* Historical (then) polygon — drawn first so the current shape overlays it */}
+      {hist && (
+        <path
+          d={hist.d}
+          fill="none"
+          stroke="var(--text-tertiary)"
+          strokeWidth={1}
+          strokeDasharray="3 3"
+          opacity={0.55}
+        />
+      )}
+
+      {/* Current data fill */}
+      <path d={curr.d} fill={`${glowAccent}18`} stroke={glowAccent} strokeWidth={1.5} />
 
       {/* Category dots */}
       {CATEGORIES.map((c, i) => {
-        const [x, y] = dotPoints[i];
+        const [x, y] = curr.pts[i];
         return (
           <circle key={c} cx={x.toFixed(1)} cy={y.toFixed(1)} r={3.5}
-            fill={CAT_META[c].accent} opacity={fracs[i] > 0.04 ? 1 : 0.25}
+            fill={CAT_META[c].accent} opacity={curr.fracs[i] > 0.04 ? 1 : 0.25}
           />
         );
       })}

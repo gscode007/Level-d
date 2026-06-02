@@ -1,4 +1,4 @@
-import { S } from "../styles";
+import styles from "../styles.module.css";
 
 export default function LoginScreen({ onSignIn, error }) {
   return (
@@ -34,7 +34,7 @@ export default function LoginScreen({ onSignIn, error }) {
           ◈
         </div>
 
-        <p style={{ ...S.eyebrow, textAlign: "center", marginBottom: 10 }}>
+        <p className={styles.eyebrow} style={{ textAlign: "center", marginBottom: 10 }}>
           Leveld
         </p>
 

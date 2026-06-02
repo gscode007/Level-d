@@ -1,22 +1,26 @@
 import { useState } from "react";
-import { USER_CATEGORIES, CAT_META, RANKS } from "../constants";
-import { S } from "../styles";
+import { USER_CATEGORIES, CAT_META } from "../constants";
+import styles from "../styles.module.css";
 import AddSheet from "./AddSheet";
 import QuestSheet from "./QuestSheet";
 
 /* ──────────────────────────────────────────────────────────────────────────
    SetupWizard — four-step onboarding using Level-d's existing visual system.
    Steps:
-     1. Chapter title
+     1. Arc goal — the 3–8 year master aspiration that frames every level
+        that follows. Finishing setup auto-starts the arc and stamps the
+        current chapter as "Level 1".
      2. Identity statements (per dimension)
-     3. Weights + required rank
+     3. Weights — how the dimensions are prioritized inside this arc. No
+        "target rank" picker; under an arc, advancement is governed by the
+        rank dual-gate (XP + boss) defined in gamification.config.js.
      4. Initial goals — a few habits / quit-habits / milestones / quests that
-        the chapter starts with. These are stamped locked:true, so they share
-        the same 3-day edit window as before: editable for the first 3 days of
-        the level, immutable after. More can still be added later (unlocked).
+        the level starts with. These are stamped locked:true, so they share
+        the same 3-day edit window as before: editable for the first 3 days
+        of the level, immutable after. More can still be added later.
    ────────────────────────────────────────────────────────────────────────── */
 
-const STEPS = ["Chapter", "Identities", "Weights", "Goals"];
+const STEPS = ["Arc", "Identities", "Weights", "Goals"];
 
 const GOAL_TYPES = [
   { key: "habitual",  label: "Habit" },
@@ -27,10 +31,9 @@ const GOAL_TYPES = [
 
 export default function SetupWizard({ level, onFinish }) {
   const [step, setStep] = useState(0);
-  const [title, setTitle] = useState(level.title || "");
+  const [arcGoal, setArcGoal] = useState("");
   const [catGoals, setCatGoals] = useState({ ...level.categoryGoals });
   const [weights, setWeights] = useState({ ...level.weights });
-  const [reqRank, setReqRank] = useState(level.requiredRank || "A");
 
   // Step 4 — initial goals collected before the level begins.
   const [goals, setGoals]   = useState([]); // habit / milestone / quit payloads
@@ -63,10 +66,10 @@ export default function SetupWizard({ level, onFinish }) {
     setWeights(nw);
   }
 
-  const canAdvance = step === 0 ? !!title.trim() : true;
+  const canAdvance = step === 0 ? !!arcGoal.trim() : true;
   function next()   { setStep((s) => Math.min(STEPS.length - 1, s + 1)); }
   function back()   { setStep((s) => Math.max(0, s - 1)); }
-  function finish() { onFinish(title, catGoals, weights, reqRank, goals, quests); }
+  function finish() { onFinish(arcGoal.trim(), catGoals, weights, goals, quests); }
 
   function addGoalPayload(g)  { setGoals((arr) => [...arr, g]); setAddType(null); }
   function removeGoal(i)      { setGoals((arr) => arr.filter((_, idx) => idx !== i)); }
@@ -74,11 +77,11 @@ export default function SetupWizard({ level, onFinish }) {
   function removeQuest(i)     { setQuests((arr) => arr.filter((_, idx) => idx !== i)); }
 
   return (
-    <div style={S.setupWrap}>
-      <div style={{ ...S.setupCard, maxWidth: 520 }}>
+    <div className={styles.setupWrap}>
+      <div className={styles.setupCard} style={{ maxWidth: 520 }}>
 
         {/* Step indicators */}
-        <div style={{ ...S.stepRow, alignItems: "flex-start" }}>
+        <div className={styles.stepRow} style={{ alignItems: "flex-start" }}>
           <div style={{
             position: "absolute", top: 11, left: "12%", right: "12%",
             height: 1, background: "var(--border)", zIndex: 0,
@@ -109,22 +112,26 @@ export default function SetupWizard({ level, onFinish }) {
           ))}
         </div>
 
-        {/* Step 0 — chapter title */}
+        {/* Step 0 — arc goal */}
         {step === 0 && (
           <div style={{ animation: "fadeUp 0.3s var(--easing-out)" }}>
-            <p style={S.eyebrow}>Level {level.num}</p>
-            <h1 style={S.setupH}>Name who you're<br />becoming</h1>
-            <p style={S.setupDesc}>A short title for this chapter — the version of you taking shape.</p>
+            <p className={styles.eyebrow}>Level 1</p>
+            <h1 className={styles.setupH}>What's the arc<br />you're starting?</h1>
+            <p className={styles.setupDesc}>
+              The master goal that frames the next several years. Levels (Level 1, 2, 3…) ladder up
+              inside this arc. Rank climbs E → S as you clear qualifying levels.
+            </p>
             <input
-              style={S.bigInput}
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g., Building the Foundation"
+              className={styles.bigInput}
+              value={arcGoal}
+              onChange={(e) => setArcGoal(e.target.value)}
+              placeholder="e.g., Become a published novelist"
               autoFocus
               onKeyDown={(e) => e.key === "Enter" && canAdvance && next()}
             />
             <button
-              style={{ ...S.nextBtn, opacity: canAdvance ? 1 : 0.35 }}
+              className={styles.nextBtn}
+              style={{ opacity: canAdvance ? 1 : 0.35 }}
               disabled={!canAdvance}
               onClick={next}
             >
@@ -136,18 +143,18 @@ export default function SetupWizard({ level, onFinish }) {
         {/* Step 1 — identity statements */}
         {step === 1 && (
           <div style={{ animation: "fadeUp 0.3s var(--easing-out)" }}>
-            <p style={S.eyebrow}>{title}</p>
-            <h1 style={S.setupH}>Who you're<br />becoming</h1>
-            <p style={S.setupDesc}>An identity statement for each dimension. Your habits will be evidence for these.</p>
+            <p className={styles.eyebrow}>{arcGoal}</p>
+            <h1 className={styles.setupH}>Who you're<br />becoming</h1>
+            <p className={styles.setupDesc}>An identity statement for each dimension. Your habits will be evidence for these.</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
               {USER_CATEGORIES.map((cat) => (
-                <div key={cat} style={S.catGoalRow}>
-                  <div style={S.catGoalLbl}>
+                <div key={cat} className={styles.catGoalRow}>
+                  <div className={styles.catGoalLbl}>
                     <span style={{ color: CAT_META[cat].accent, fontSize: 14 }}>{CAT_META[cat].symbol}</span>
                     <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)", letterSpacing: "0.03em" }}>{cat}</span>
                   </div>
                   <input
-                    style={S.inlineInput}
+                    className={styles.inlineInput}
                     value={catGoals[cat] || ""}
                     onChange={(e) => setCatGoals((g) => ({ ...g, [cat]: e.target.value }))}
                     placeholder="becoming…"
@@ -161,7 +168,7 @@ export default function SetupWizard({ level, onFinish }) {
                 borderRadius: 6, border: "1px solid var(--border)",
                 opacity: 0.6,
               }}>
-                <div style={S.catGoalLbl}>
+                <div className={styles.catGoalLbl}>
                   <span style={{ color: CAT_META.Resilience.accent, fontSize: 14 }}>{CAT_META.Resilience.symbol}</span>
                   <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)", letterSpacing: "0.03em" }}>Resilience</span>
                 </div>
@@ -171,18 +178,18 @@ export default function SetupWizard({ level, onFinish }) {
               </div>
             </div>
             <div style={{ display: "flex", gap: 10, marginTop: 22 }}>
-              <button style={S.backBtn} onClick={back}>← Back</button>
-              <button style={S.nextBtn} onClick={next}>Continue →</button>
+              <button className={styles.backBtn} onClick={back}>← Back</button>
+              <button className={styles.nextBtn} onClick={next}>Continue →</button>
             </div>
           </div>
         )}
 
-        {/* Step 2 — weights + required rank */}
+        {/* Step 2 — weights (no per-level rank picker under arc mode) */}
         {step === 2 && (
           <div style={{ animation: "fadeUp 0.3s var(--easing-out)" }}>
-            <p style={S.eyebrow}>{title}</p>
-            <h1 style={S.setupH}>Prioritize your<br />dimensions</h1>
-            <p style={S.setupDesc}>Drag to weight each dimension — total stays 100%.</p>
+            <p className={styles.eyebrow}>{arcGoal}</p>
+            <h1 className={styles.setupH}>Prioritize your<br />dimensions</h1>
+            <p className={styles.setupDesc}>Drag to weight each dimension — total stays 100%.</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 20, marginTop: 16 }}>
               {USER_CATEGORIES.map((cat) => (
                 <div key={cat}>
@@ -229,28 +236,9 @@ export default function SetupWizard({ level, onFinish }) {
               </span>
             </div>
 
-            <div style={{ marginTop: 20 }}>
-              <p style={{ ...S.panelLbl, marginBottom: 10 }}>Target rank to complete level</p>
-              <div style={{ display: "flex", gap: 6 }}>
-                {RANKS.map((r) => (
-                  <button
-                    key={r}
-                    onClick={() => setReqRank(r)}
-                    style={{
-                      ...S.rankPill,
-                      background: reqRank === r ? "var(--accent)" : "transparent",
-                      color: reqRank === r ? "#fff" : "var(--text-secondary)",
-                      border: `1px solid ${reqRank === r ? "var(--accent)" : "var(--border)"}`,
-                      boxShadow: reqRank === r ? "0 0 12px rgba(59,130,246,0.4)" : "none",
-                    }}
-                  >{r}</button>
-                ))}
-              </div>
-            </div>
-
             <div style={{ display: "flex", gap: 10, marginTop: 26 }}>
-              <button style={S.backBtn} onClick={back}>← Back</button>
-              <button style={S.nextBtn} onClick={next}>Continue →</button>
+              <button className={styles.backBtn} onClick={back}>← Back</button>
+              <button className={styles.nextBtn} onClick={next}>Continue →</button>
             </div>
           </div>
         )}
@@ -258,9 +246,9 @@ export default function SetupWizard({ level, onFinish }) {
         {/* Step 3 — initial goals */}
         {step === 3 && (
           <div style={{ animation: "fadeUp 0.3s var(--easing-out)" }}>
-            <p style={S.eyebrow}>{title}</p>
-            <h1 style={S.setupH}>Set your<br />starting goals</h1>
-            <p style={S.setupDesc}>
+            <p className={styles.eyebrow}>{arcGoal}</p>
+            <h1 className={styles.setupH}>Set your<br />starting goals</h1>
+            <p className={styles.setupDesc}>
               A few habits, milestones, quit-habits, or quests to begin with. These lock 3 days
               after the level starts — choose carefully. You can always add more later.
             </p>
@@ -311,8 +299,8 @@ export default function SetupWizard({ level, onFinish }) {
             </div>
 
             <div style={{ display: "flex", gap: 10, marginTop: 22 }}>
-              <button style={S.backBtn} onClick={back}>← Back</button>
-              <button style={S.nextBtn} onClick={finish}>Begin Level {level.num}</button>
+              <button className={styles.backBtn} onClick={back}>← Back</button>
+              <button className={styles.nextBtn} onClick={finish}>Begin Level 1</button>
             </div>
           </div>
         )}
@@ -349,7 +337,7 @@ function SetupGoalRow({ accent, symbol, name, meta, onRemove }) {
         <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</div>
         <div style={{ fontSize: 9, color: "var(--text-tertiary)", fontFamily: "var(--font-mono)", letterSpacing: "0.06em", marginTop: 2 }}>{meta}</div>
       </div>
-      <button onClick={onRemove} title="Remove" style={{ ...S.delBtn, flexShrink: 0 }}>✕</button>
+      <button onClick={onRemove} title="Remove" className={styles.delBtn} style={{ flexShrink: 0 }}>✕</button>
     </div>
   );
 }

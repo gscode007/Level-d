@@ -1,6 +1,6 @@
 import { CAT_META, CATEGORIES } from "../constants";
 import { calcBaseXP } from "../utils";
-import { S } from "../styles";
+import styles from "../styles.module.css";
 import RadarChart from "./RadarChart";
 
 function computeStats(level) {
@@ -82,7 +82,7 @@ export default function LevelDetailModal({ level, onClose }) {
         }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <div>
-              <p style={{ ...S.eyebrow, marginBottom: 4 }}>Level {level.num}</p>
+              <p className={styles.eyebrow} style={{ marginBottom: 4 }}>Level {level.num}</p>
               <h2 style={{ fontSize: 22, fontWeight: 300, color: "var(--text-primary)", fontFamily: "'Instrument Serif', serif", letterSpacing: "-0.01em" }}>
                 {level.title || "Untitled"}
               </h2>
@@ -294,7 +294,7 @@ export default function LevelDetailModal({ level, onClose }) {
 function Section({ label, children }) {
   return (
     <div>
-      <p style={{ ...S.panelLbl, marginBottom: 10 }}>{label}</p>
+      <p className={styles.panelLbl} style={{ marginBottom: 10 }}>{label}</p>
       {children}
     </div>
   );

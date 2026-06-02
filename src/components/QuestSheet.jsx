@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { USER_CATEGORIES, CAT_META } from "../constants";
 import { DEFAULT_GAMIFICATION_CONFIG } from "../gamification.config.js";
-import { S } from "../styles";
+import styles from "../styles.module.css";
 
 const BANDS = ["small", "medium", "large"];
 
@@ -59,9 +59,9 @@ export default function QuestSheet({ chapterTitle, onAdd, onClose }) {
 
         {/* Title */}
         <div style={{ marginBottom: 14 }}>
-          <label style={S.fLbl}>Title</label>
+          <label className={styles.fLbl}>Title</label>
           <input
-            style={S.fInput}
+            className={styles.fInput}
             value={title}
             onChange={e => setTitle(e.target.value)}
             placeholder="e.g., Ship the portfolio site"
@@ -72,15 +72,15 @@ export default function QuestSheet({ chapterTitle, onAdd, onClose }) {
 
         {/* Dimension */}
         <div style={{ marginBottom: 14 }}>
-          <label style={S.fLbl}>Identity dimension</label>
-          <select style={S.fInput} value={dimension} onChange={e => setDimension(e.target.value)}>
+          <label className={styles.fLbl}>Identity dimension</label>
+          <select className={styles.fInput} value={dimension} onChange={e => setDimension(e.target.value)}>
             {USER_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
 
         {/* Band */}
         <div style={{ marginBottom: 14 }}>
-          <label style={S.fLbl}>Reward band</label>
+          <label className={styles.fLbl}>Reward band</label>
           <div style={{ display: "flex", gap: 6 }}>
             {BANDS.map(b => (
               <button
@@ -110,7 +110,7 @@ export default function QuestSheet({ chapterTitle, onAdd, onClose }) {
             checked={signature}
             onToggle={() => setSignature(v => !v)}
             label="Signature quest"
-            hint="Defines what leveling up means — counts toward the chapter's boss challenge."
+            hint="Defines what advancement looks like — counts toward this level's trial."
             color="var(--yellow)"
           />
           <Toggle
@@ -141,7 +141,8 @@ export default function QuestSheet({ chapterTitle, onAdd, onClose }) {
         <button
           onClick={handleSubmit}
           disabled={!title.trim()}
-          style={{ ...S.nextBtn, opacity: title.trim() ? 1 : 0.35, marginTop: 4 }}
+          className={styles.nextBtn}
+          style={{ opacity: title.trim() ? 1 : 0.35, marginTop: 4 }}
         >
           Add Quest
         </button>

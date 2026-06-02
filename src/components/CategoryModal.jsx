@@ -1,6 +1,5 @@
 import { CAT_META, RANK_COLOR, RANKS } from "../constants";
 import { getRankPct, getNextThresh, calcBaseXP, getThisWeekCount, todayStr } from "../utils";
-import { S } from "../styles";
 
 export default function CategoryModal({
   cat, score, rank, weight,

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { USER_CATEGORIES, CAT_META, HABIT_TEMPLATES, MILESTONE_TEMPLATES, DIFFICULTY_MULTIPLIER, SMART_TEMPLATE, FREQUENCY_OPTIONS } from "../constants";
 import { calcBaseXP } from "../utils";
 import { DEFAULT_GAMIFICATION_CONFIG } from "../gamification.config.js";
-import { S } from "../styles";
+import styles from "../styles.module.css";
 
 const EMPTY_ANCHOR = { cue: "", location: "", action: "", prep: "" };
 
@@ -198,9 +198,9 @@ export default function AddSheet({ type, editing, onAdd, onUpdate, onClose }) {
 
         {/* Name */}
         <div style={{ marginBottom: 14 }}>
-          <label style={S.fLbl}>Name</label>
+          <label className={styles.fLbl}>Name</label>
           <input
-            style={S.fInput}
+            className={styles.fInput}
             value={name}
             onChange={e => setName(e.target.value)}
             placeholder={effectiveType === "habitual" ? "e.g., Meditate 10 min" : "e.g., Finish online course"}
@@ -213,15 +213,15 @@ export default function AddSheet({ type, editing, onAdd, onUpdate, onClose }) {
         <div style={{ display: "grid", gridTemplateColumns: isQuit ? "1fr" : "1fr 1fr", gap: 10, marginBottom: 10 }}>
           {!isQuit && (
             <div>
-              <label style={S.fLbl}>Category</label>
-              <select style={S.fInput} value={cat} onChange={e => setCat(e.target.value)}>
+              <label className={styles.fLbl}>Category</label>
+              <select className={styles.fInput} value={cat} onChange={e => setCat(e.target.value)}>
                 {USER_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
           )}
           <div>
-            <label style={S.fLbl}>{isQuit ? "Template (XP on new streak record)" : "Template"}</label>
-            <select style={S.fInput} value={template} onChange={e => setTemplate(e.target.value)}>
+            <label className={styles.fLbl}>{isQuit ? "Template (XP on new streak record)" : "Template"}</label>
+            <select className={styles.fInput} value={template} onChange={e => setTemplate(e.target.value)}>
               {Object.entries(templates).map(([k, v]) => (
                 <option key={k} value={k}>{k} ({v} base)</option>
               ))}
@@ -238,7 +238,7 @@ export default function AddSheet({ type, editing, onAdd, onUpdate, onClose }) {
 
         {/* Difficulty */}
         <div style={{ marginBottom: 14 }}>
-          <label style={S.fLbl}>Difficulty</label>
+          <label className={styles.fLbl}>Difficulty</label>
           <div style={{ display: "flex", gap: 6 }}>
             {Object.entries(DIFFICULTY_MULTIPLIER).map(([d, m]) => (
               <button
@@ -264,7 +264,7 @@ export default function AddSheet({ type, editing, onAdd, onUpdate, onClose }) {
         {/* Also votes for (secondary identities — habitual only) */}
         {!isQuit && effectiveType === "habitual" && (
           <div style={{ marginBottom: 14 }}>
-            <label style={S.fLbl}>
+            <label className={styles.fLbl}>
               Also votes for{" "}
               <span style={{ color: "var(--text-tertiary)", fontWeight: 400, textTransform: "none", letterSpacing: "0.02em" }}>
                 — extra identities this habit supports
@@ -310,7 +310,7 @@ export default function AddSheet({ type, editing, onAdd, onUpdate, onClose }) {
         {/* Frequency (habits only) */}
         {(effectiveType === "habitual" || isQuit) && (
           <div style={{ marginBottom: 14 }}>
-            <label style={S.fLbl}>Frequency</label>
+            <label className={styles.fLbl}>Frequency</label>
             <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
               {FREQUENCY_OPTIONS.map(({ label, value }) => (
                 <button
@@ -362,21 +362,22 @@ export default function AddSheet({ type, editing, onAdd, onUpdate, onClose }) {
         {/* Milestone steps */}
         {!isQuit && effectiveType === "milestone" && (
           <div style={{ marginBottom: 14 }}>
-            <label style={S.fLbl}>Steps</label>
+            <label className={styles.fLbl}>Steps</label>
             {steps.map((step, i) => (
               <div key={i} style={{ display: "flex", gap: 7, marginBottom: 7, alignItems: "center" }}>
                 <input
-                  style={{ ...S.fInput, flex: 1 }}
+                  className={styles.fInput}
+                  style={{ flex: 1 }}
                   value={step.name}
                   onChange={e => setSteps(s => s.map((st, idx) => idx === i ? { ...st, name: e.target.value } : st))}
                   placeholder={`Step ${i + 1}`}
                 />
                 {steps.length > 1 && (
-                  <button onClick={() => setSteps(s => s.filter((_, idx) => idx !== i))} style={S.delBtn}>✕</button>
+                  <button onClick={() => setSteps(s => s.filter((_, idx) => idx !== i))} className={styles.delBtn}>✕</button>
                 )}
               </div>
             ))}
-            <button onClick={() => setSteps(s => [...s, { name: "" }])} style={S.ghostBtn}>
+            <button onClick={() => setSteps(s => [...s, { name: "" }])} className={styles.ghostBtn}>
               + Add step
             </button>
           </div>
@@ -415,21 +416,22 @@ export default function AddSheet({ type, editing, onAdd, onUpdate, onClose }) {
             {surgeOpen && (
               <div style={{ padding: "4px 14px 14px" }}>
                 <div style={{ marginBottom: 9 }}>
-                  <label style={{ ...S.fLbl, fontSize: 8 }}>Surge target</label>
+                  <label className={styles.fLbl} style={{ fontSize: 8 }}>Surge target</label>
                   <input
-                    style={S.fInput}
+                    className={styles.fInput}
                     value={surgeTarget}
                     onChange={e => setSurgeTarget(e.target.value)}
                     placeholder="e.g., 100 push-ups (vs the usual 30)"
                   />
                 </div>
                 <div style={{ marginBottom: 4 }}>
-                  <label style={{ ...S.fLbl, fontSize: 8 }}>Surge multiplier</label>
+                  <label className={styles.fLbl} style={{ fontSize: 8 }}>Surge multiplier</label>
                   <input
                     type="number"
                     step="0.1"
                     min="1"
-                    style={{ ...S.fInput, maxWidth: 120 }}
+                    className={styles.fInput}
+                    style={{ maxWidth: 120 }}
                     value={surgeMult}
                     onChange={e => setSurgeMult(e.target.value)}
                   />
@@ -475,9 +477,9 @@ export default function AddSheet({ type, editing, onAdd, onUpdate, onClose }) {
             <div style={{ padding: "4px 14px 14px" }}>
               {["cue", "location", "action", "prep"].map(key => (
                 <div key={key} style={{ marginBottom: 9 }}>
-                  <label style={{ ...S.fLbl, fontSize: 8 }}>{ANCHOR_LABELS[key]}{key === "prep" ? " (optional)" : ""}</label>
+                  <label className={styles.fLbl} style={{ fontSize: 8 }}>{ANCHOR_LABELS[key]}{key === "prep" ? " (optional)" : ""}</label>
                   <input
-                    style={S.fInput}
+                    className={styles.fInput}
                     value={anchor[key]}
                     onChange={e => setAnchor(a => ({ ...a, [key]: e.target.value }))}
                     placeholder={ANCHOR_PLACEHOLDERS[key]}
@@ -486,9 +488,9 @@ export default function AddSheet({ type, editing, onAdd, onUpdate, onClose }) {
               ))}
 
               <div style={{ marginBottom: 9 }}>
-                <label style={{ ...S.fLbl, fontSize: 8 }}>If / Then Fallback (optional)</label>
+                <label className={styles.fLbl} style={{ fontSize: 8 }}>If / Then Fallback (optional)</label>
                 <input
-                  style={S.fInput}
+                  className={styles.fInput}
                   value={fallback}
                   onChange={e => setFallback(e.target.value)}
                   placeholder="If I miss morning coffee, then I will brain-dump at the desk before email"
@@ -499,9 +501,10 @@ export default function AddSheet({ type, editing, onAdd, onUpdate, onClose }) {
               </div>
 
               <div>
-                <label style={{ ...S.fLbl, fontSize: 8 }}>Notes — why this habit matters</label>
+                <label className={styles.fLbl} style={{ fontSize: 8 }}>Notes — why this habit matters</label>
                 <textarea
-                  style={{ ...S.fInput, minHeight: 60, resize: "vertical", fontFamily: "'Geist', sans-serif", lineHeight: 1.5 }}
+                  className={styles.fInput}
+                  style={{ minHeight: 60, resize: "vertical", fontFamily: "'Geist', sans-serif", lineHeight: 1.5 }}
                   value={notes}
                   onChange={e => setNotes(e.target.value)}
                   placeholder="What does success look like? Why am I doing this?"
@@ -514,8 +517,8 @@ export default function AddSheet({ type, editing, onAdd, onUpdate, onClose }) {
         <button
           onClick={handleSubmit}
           disabled={!name.trim() || (!isQuit && effectiveType === "milestone" && !steps.some(s => s.name.trim()))}
+          className={styles.nextBtn}
           style={{
-            ...S.nextBtn,
             opacity: (name.trim() && (isQuit || effectiveType !== "milestone" || steps.some(s => s.name.trim()))) ? 1 : 0.35,
             marginTop: 8,
           }}

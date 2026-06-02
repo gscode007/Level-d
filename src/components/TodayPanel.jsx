@@ -1,6 +1,6 @@
 import { CAT_META } from "../constants";
 import { todayStr } from "../utils";
-import { S } from "../styles";
+import styles from "../styles.module.css";
 
 export default function TodayPanel({ level, lastCompletions, streaks }) {
   const t = todayStr();
@@ -10,10 +10,10 @@ export default function TodayPanel({ level, lastCompletions, streaks }) {
   const pct = habits.length ? Math.round((done / habits.length) * 100) : 0;
 
   return (
-    <div style={{ ...S.panel, display: "flex", flexDirection: "column" }}>
+    <div className={styles.panel} style={{ display: "flex", flexDirection: "column" }}>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-        <p style={S.panelLbl}>Today's Habits</p>
+        <p className={styles.panelLbl}>Today's Habits</p>
         <span style={{
           fontSize: 13, fontWeight: 700,
           color: allDone ? "var(--green)" : "var(--text-primary)",

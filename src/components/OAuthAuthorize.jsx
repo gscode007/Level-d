@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { auth } from "../firebase";
-import { S } from "../styles";
+import styles from "../styles.module.css";
 import LoginScreen from "./LoginScreen";
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -88,13 +88,13 @@ export default function OAuthAuthorize({ user, onSignIn, signInError }) {
   }
 
   return (
-    <div style={S.setupWrap}>
-      <div style={{ ...S.setupCard, maxWidth: 460, padding: "36px 36px 32px" }}>
-        <p style={S.eyebrow}>OAuth Authorize</p>
-        <h1 style={{ ...S.setupH, marginBottom: 12 }}>
+    <div className={styles.setupWrap}>
+      <div className={styles.setupCard} style={{ maxWidth: 460, padding: "36px 36px 32px" }}>
+        <p className={styles.eyebrow}>OAuth Authorize</p>
+        <h1 className={styles.setupH} style={{ marginBottom: 12 }}>
           Allow <span style={{ color: "var(--accent)" }}>Claude</span> to read &amp; write your Level-d data?
         </h1>
-        <p style={{ ...S.setupDesc, marginBottom: 18 }}>
+        <p className={styles.setupDesc} style={{ marginBottom: 18 }}>
           Granting access lets Claude see your habits, identities, weekly votes, and create or complete goals on your behalf.
         </p>
 
@@ -137,14 +137,16 @@ export default function OAuthAuthorize({ user, onSignIn, signInError }) {
           <button
             onClick={deny}
             disabled={submitting}
-            style={{ ...S.backBtn, flex: 1, opacity: submitting ? 0.5 : 1 }}
+            className={styles.backBtn}
+            style={{ flex: 1, opacity: submitting ? 0.5 : 1 }}
           >
             Deny
           </button>
           <button
             onClick={allow}
             disabled={submitting}
-            style={{ ...S.nextBtn, marginTop: 0, flex: 1.6, opacity: submitting ? 0.5 : 1 }}
+            className={styles.nextBtn}
+            style={{ marginTop: 0, flex: 1.6, opacity: submitting ? 0.5 : 1 }}
           >
             {submitting ? "Authorizing…" : "Allow"}
           </button>
@@ -165,11 +167,11 @@ function Permission({ text }) {
 
 function FailScreen({ heading, message }) {
   return (
-    <div style={S.setupWrap}>
-      <div style={{ ...S.setupCard, maxWidth: 460 }}>
-        <p style={S.eyebrow}>OAuth</p>
-        <h1 style={{ ...S.setupH, marginBottom: 12 }}>{heading}</h1>
-        <p style={S.setupDesc}>{message}</p>
+    <div className={styles.setupWrap}>
+      <div className={styles.setupCard} style={{ maxWidth: 460 }}>
+        <p className={styles.eyebrow}>OAuth</p>
+        <h1 className={styles.setupH} style={{ marginBottom: 12 }}>{heading}</h1>
+        <p className={styles.setupDesc}>{message}</p>
       </div>
     </div>
   );

@@ -215,3 +215,122 @@ throwing limiter → `captureError` called exactly once **and** pass-through
 **Closeout status:** all three items complete. A.2 is a documented no-op
 (Layer 2 was clean); A.1 tooling + A.3 wiring shipped. Full suite: 44 tests
 passing.
+
+---
+
+## Arc / Rank / Level progression (2026-05-30)
+
+A three-tier progression structure layered ON TOP of the existing chapter
+system. **Additive.** No habit / XP / streak / surge / hardening / MCP
+endpoint signatures changed. Engages only when the user calls `start_arc`;
+until then, advance_level behaves exactly as before.
+
+### Hierarchy
+- **Arc** — one master goal (3–8 yr). One active at a time. Stored at
+  `users/{uid}/arcs/{arcId}` (subcollection — root doc holds only
+  `state.arc = { id, goal, startDate, status }` summary).
+- **Level** — what the codebase calls a "chapter," reframed. Each level
+  takes weeks to a month. **System-named "Level N"** (sequential within the
+  arc) — not user-customizable while an arc is active. Completed levels are
+  archived to `users/{uid}/levels/{levelId}` (subcollection — root array
+  doesn't grow with arc history).
+- **Rank** — E → D → C → B → A → S. Climbs as qualifying levels are
+  completed. **Never drops. S is the ceiling.** Stored on root doc as
+  `state.rank = { current, qualifyingLevelsAtRank }`.
+
+### Dual-gate advancement (per current rank)
+Both gates must pass for `advance_level` to advance under an arc:
+
+- **Gate 1 (XP):** `accumulatedLevelXP >= baseThreshold × rank.xpMult`,
+  where `accumulatedLevelXP = sum(catScores[USER_CATEGORIES])` (already
+  resets per level, already includes quest XP via `reconcileQuestXP`).
+- **Gate 2 (Boss):** trailing per-week habit completion rate ≥
+  `rank.completion` across every week in `rank.windowWeeks` AND the
+  rank-specific signature requirement is met. When `signature.kind ===
+  "none"` the signature sub-check is skipped.
+
+Gate failure → structured `{ ok:false, canAdvance:false, gates:{…} }` from
+the MCP, **no throw**. Caller inspects `gates.xp` and `gates.boss` to see
+exactly what's missing.
+
+### Rank table (single source of truth: `gamification.config.js`)
+
+| Rank | XP mult | Completion | Window  | Signature requirement                              | Qualifying levels to advance |
+|------|---------|------------|---------|----------------------------------------------------|------------------------------|
+| E    | 1.0     | 80%        | 3 weeks | none                                               | 3                            |
+| D    | 1.1     | 83%        | 3 weeks | 1 signature quest, any band                        | 3                            |
+| C    | 1.2     | 85%        | 3 weeks | 1 large-band signature quest                       | 3                            |
+| B    | 1.3     | 88%        | 4 weeks | 1 large quest + 1 milestone completed              | 4                            |
+| A    | 1.5     | 90%        | 4 weeks | 1 large quest + 1 milestone + any 21-day streak    | 5                            |
+| S    | 1.75    | 92%        | 4 weeks | large quest + milestone + 21-day streak + 40% surge| Infinity (user-declared)     |
+
+### `baseThreshold = 1800` — calibration
+
+Strong-performer profile (the spec's target: clear E in ~3 weeks):
+
+- 5 daily habits, Standard template × Medium difficulty × category modifier
+  avg ≈ 1.12 → `round(10 × 1.5 × 1.12) ≈ 17 XP / completion`.
+- 21 days × 5 habits = **105 completions** → raw `105 × 17 ≈ 1785 XP`.
+- Streak ramp (week 1 ×1.0, week 2 ×1.0, week 3 averaging ×1.2 once the
+  7-day tier hits) → effective ≈ ×1.07 → **~1910 XP**.
+- Daily 60-XP-per-category cap (5 × 60 × 21 = 6300) is non-binding here.
+
+Strong performer clears E in ~3 weeks; D needs `1800 × 1.1 = 1980` (~3.3
+weeks); S needs `1800 × 1.75 = 3150` (sustained). Per-rank values live in
+`gamification.config.js > progression`, fully overridable per user.
+
+### MCP surface
+
+- **NEW `start_arc({ goal })`** — errors if an arc is active. Stamps the
+  current chapter as `Level 1`, initializes `state.rank = { current:"E",
+  qualifyingLevelsAtRank:0 }`. Preserves existing XP, habits, quests.
+- **EXTENDED `advance_level`** — under an arc: enforces the dual-gate;
+  archives the completed level to `users/{uid}/levels/{lvlId}`; promotes
+  rank when qualifying threshold hit; creates the next system-named level.
+  Without an arc: legacy behavior unchanged.
+- **NEW `complete_arc({ confirm:true })`** — only valid at S rank with
+  ≥ `consecutiveSRankLevels` (default 3) qualifying S-rank levels cleared.
+  User-declared, never automatic.
+- **EXTENDED `get_identity_portrait`** — when an arc is active, response
+  gains a `progression` block: `{ arc, rank:{current,
+  qualifyingLevelsAtRank, levelsToNextRank}, level:{displayName, rank,
+  sequenceInRank, sequenceInArc}, gates:{xp, boss, canAdvance} }`. Legacy
+  fields unchanged.
+- **HARDENED `update_chapter`** — rejects `title` when an arc is active
+  (system-named levels). Other fields stay editable.
+
+### Files
+
+| What | Where |
+|---|---|
+| Rank table, baseThreshold, signature specs | `src/gamification.config.js` (`progression` block) |
+| Pure rank counter (promotion, never-drop, S ceiling) | `src/gamification/rank.js` |
+| Dual-gate evaluator + signature spec dispatcher | `src/gamification/progression.js` |
+| Arc lifecycle + arc-mode advance | `api/mcp.js` (`toolStartArc`, `toolCompleteArc`, arc branch in `toolAdvanceLevel`) |
+| Client gate enforcement + arc-mode advance | `src/App.jsx` (arc branch in `advanceLevel`, gate-driven `canAdvance`) |
+| Arc header + Level N display | `src/components/Dashboard.jsx`, `src/components/RankHero.jsx` |
+
+### Migration
+
+Schemaless; **no migration required**.
+
+- Existing users: `state.arc` / `state.rank` are simply absent →
+  `isArcActive()` returns false → legacy single-gate behavior.
+- Mid-chapter users who later call `start_arc`: the current chapter is
+  stamped `Level 1` and rank initialized to E. **Existing catScores /
+  habits / quests / streaks are preserved as-is.**
+- Past `state.levels[]` entries are not backfilled with arc metadata
+  (they pre-date the arc and don't need labels).
+
+**Rollback:** stop reading `state.arc` and `state.rank` (legacy code path
+ignores them); `users/{uid}/arcs/*` and `users/{uid}/levels/*`
+subcollections remain on disk but stop receiving writes.
+
+### Tests
+
+`src/gamification/rank.test.mjs` and `src/gamification/progression.test.mjs`
+cover: rank-specific gate math (E…S), never-drop on repeated calls, S
+ceiling, full E→S walk, XP-only fail, boss-only fail, signature-spec
+parsing (none / signatureQuests with band / milestonesCompleted /
+streakAchieved / composite / surgePct fail-closed without stats),
+progression-summary shape. Full suite: **64 passing.**

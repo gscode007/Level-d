@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { USER_CATEGORIES, CAT_META } from "../constants";
 import { todayStr, calcBaseXP, getThisWeekCount, canEditGoal, editWindowHoursLeft } from "../utils";
-import { S } from "../styles";
+import styles from "../styles.module.css";
 import { useIsMobile } from "../hooks/useIsMobile";
 import AddSheet from "./AddSheet";
 import QuestSheet from "./QuestSheet";
@@ -27,7 +27,10 @@ export default function GoalsView({
   const hoursLeft = editWindowHoursLeft(level);
   const showEditBanner = hoursLeft > 0 && (level.goals.some(g => g.locked) || (quests || []).some(q => q.locked && (!q.chapterId || q.chapterId === level.id)));
   const isMobile = useIsMobile();
-  const [tab, setTab]             = useState("habitual");
+  // Phase 6: tabs collapsed to a single scroll. The legacy `tab` state used
+  // to gate which section rendered; now every section is always visible with
+  // a sticky header. The top + Add button defaults to adding a habit (the
+  // most common case); per-section + buttons handle the rest.
   const [calendarGoal, setCalendarGoal]     = useState(null);
   const [quitCalendarGoal, setQuitCalendarGoal] = useState(null);
   const t = todayStr();
@@ -44,23 +47,24 @@ export default function GoalsView({
   const lastWeek = new Date(); lastWeek.setDate(lastWeek.getDate() - 7);
 
   return (
-    <div style={{ ...S.page, maxWidth: "none", padding: isMobile ? "20px 14px 24px" : S.page.padding }}>
-      <header style={{ ...S.pageHead, marginBottom: isMobile ? 16 : S.pageHead.marginBottom }}>
+    <div className={styles.page} style={{ maxWidth: "none", ...(isMobile ? { padding: "20px 14px 24px" } : {}) }}>
+      <header className={styles.pageHead} style={{ ...(isMobile ? { marginBottom: 16 } : {}) }}>
         <div style={{ minWidth: 0 }}>
-          <p style={S.eyebrow}>Level {level.num} · {level.title}</p>
-          <h1 style={{ ...S.pageH1, fontSize: isMobile ? 24 : 30 }}>Goals</h1>
+          <p className={styles.eyebrow}>
+            {state.arc?.status === "active"
+              ? `Level ${level.sequenceInArc || level.num} · Tier ${state.rank?.current || "E"}`
+              : `Level ${level.num} · ${level.title}`}
+          </p>
+          <h1 className={styles.pageH1} style={{ fontSize: isMobile ? 24 : 30 }}>Goals</h1>
         </div>
         <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
           <AgentButton enabled={aiAgentEnabled} onClick={() => setAgentOpen(true)} />
           <button
-            style={S.addBtn}
-            onClick={() => {
-              if (tab === "quests") { setQuestAddOpen(true); return; }
-              setAddType(tab === "quit" ? "quitHabit" : tab);
-              setAddOpen(true);
-            }}
+            className={styles.addBtn}
+            onClick={() => { setAddType("habitual"); setAddOpen(true); }}
+            title="Add a habit (use a section's + to add other types)"
           >
-            + Add
+            + Habit
           </button>
         </div>
       </header>
@@ -85,13 +89,12 @@ export default function GoalsView({
       )}
 
       {/* Category strip */}
-      <div style={{
-        ...S.catStrip,
+      <div className={styles.catStrip} style={{
         flexWrap: "nowrap",
         overflowX: "auto",
         WebkitOverflowScrolling: "touch",
         gap: isMobile ? 18 : 16,
-        padding: isMobile ? "12px 14px" : S.catStrip.padding,
+        ...(isMobile ? { padding: "12px 14px" } : {}),
       }}>
         {USER_CATEGORIES.map(cat => (
           <div key={cat} style={{ display: "flex", alignItems: "flex-start", gap: 6, flexShrink: 0, minWidth: isMobile ? 90 : 120 }}>
@@ -108,31 +111,16 @@ export default function GoalsView({
         ))}
       </div>
 
-      {/* Tabs */}
-      <div style={S.tabRow}>
-        {[
-          ["habitual",  `Habits (${habitual.length})`],
-          ["milestone", `Milestones (${milestones.length})`],
-          ["quit",      `Quit (${quitGoals.length})`],
-          ["quests",    `Quests (${activeQuests.length})`],
-        ].map(([id, label]) => (
-          <button key={id} onClick={() => setTab(id)} style={{
-            ...S.tab,
-            color: tab === id ? "var(--accent)" : "var(--text-tertiary)",
-            borderBottom: tab === id ? "2px solid var(--accent)" : "2px solid transparent",
-            fontWeight: tab === id ? 600 : 400,
-            fontSize: 12, letterSpacing: "0.02em",
-          }}>
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* ── Habits tab ── */}
-      {tab === "habitual" && (
+      {/* ── Habits section ── */}
+      <SectionHeader
+        title="Habits"
+        count={habitual.length}
+        onAdd={() => { setAddType("habitual"); setAddOpen(true); }}
+      />
+      <div style={{ marginBottom: 18 }}>
         <div>
           {habitual.length === 0 && (
-            <EmptyHint text="Daily habits earn XP every completion." onAdd={() => { setAddType("habitual"); setAddOpen(true); }} />
+            <EmptyHint text="Daily habits earn XP every completion." />
           )}
           {habitual.map(g => {
             const freq        = g.frequency || 7;
@@ -214,13 +202,18 @@ export default function GoalsView({
             );
           })}
         </div>
-      )}
+      </div>
 
-      {/* ── Milestones tab ── */}
-      {tab === "milestone" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
+      {/* ── Milestones section ── */}
+      <SectionHeader
+        title="Milestones"
+        count={milestones.length}
+        onAdd={() => { setAddType("milestone"); setAddOpen(true); }}
+      />
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {milestones.length === 0 && (
-            <EmptyHint text="Define big objectives broken into steps." onAdd={() => { setAddType("milestone"); setAddOpen(true); }} />
+            <EmptyHint text="Define big objectives broken into steps." />
           )}
           {milestones.map(g => {
             const doneCount = g.milestoneSteps.filter(s => s.completed).length;
@@ -230,7 +223,7 @@ export default function GoalsView({
               ? calcBaseXP(g.template, g.difficulty, g.category, "milestone")
               : g.milestoneSteps.reduce((s, step) => s + (step.weight || 20), 0);
             return (
-              <div key={g.id} style={{ ...S.mCard, borderLeft: `2px solid ${CAT_META[g.category]?.accent || "var(--accent)"}` }}>
+              <div key={g.id} className={styles.mCard} style={{ borderLeft: `2px solid ${CAT_META[g.category]?.accent || "var(--accent)"}` }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 500, color: "var(--text-primary)" }}>{g.name}</div>
@@ -288,13 +281,18 @@ export default function GoalsView({
             );
           })}
         </div>
-      )}
+      </div>
 
-      {/* ── Quit Habits tab ── */}
-      {tab === "quit" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
+      {/* ── Quit Habits section ── */}
+      <SectionHeader
+        title="Quit habits"
+        count={quitGoals.length}
+        onAdd={() => { setAddType("quitHabit"); setAddOpen(true); }}
+      />
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {quitGoals.length === 0 && (
-            <EmptyHint text="Track habits you're trying to quit. XP only for beating your best streak." onAdd={() => { setAddType("quitHabit"); setAddOpen(true); }} />
+            <EmptyHint text="Track habits you're trying to quit. XP only for beating your best streak." />
           )}
           {quitGoals.map(g => {
             const checked       = state.lastCompletions[g.id] === t;
@@ -402,13 +400,19 @@ export default function GoalsView({
             );
           })}
         </div>
-      )}
+      </div>
 
-      {/* ── Quests tab ── */}
-      {tab === "quests" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
+      {/* ── Quests section ── */}
+      <SectionHeader
+        title="Quests"
+        count={activeQuests.length}
+        countHint={doneQuests.length ? `${doneQuests.length} done` : null}
+        onAdd={() => setQuestAddOpen(true)}
+      />
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {levelQuests.length === 0 && (
-            <EmptyHint text="One-off side quests. Complete once for a flat XP reward. Mark signature quests to define what leveling up means." onAdd={() => setQuestAddOpen(true)} />
+            <EmptyHint text="One-off side quests. Complete once for a flat XP reward. Mark signature quests to define what leveling up means." />
           )}
           {[...activeQuests, ...doneQuests].map(q => {
             const done   = q.status === "completed";
@@ -470,7 +474,8 @@ export default function GoalsView({
                   <button
                     onClick={() => onDeleteQuest?.(q.id)}
                     title="Delete quest"
-                    style={{ ...S.delBtn, flexShrink: 0 }}
+                    className={styles.delBtn}
+                    style={{ flexShrink: 0 }}
                   >✕</button>
                 ) : (
                   <span title="Locked — set during chapter setup, immutable after the 3-day window" style={{ fontSize: 10, color: "var(--text-tertiary)", fontFamily: "var(--font-mono)", padding: "2px 4px", flexShrink: 0 }}>⚿</span>
@@ -479,7 +484,7 @@ export default function GoalsView({
             );
           })}
         </div>
-      )}
+      </div>
 
       {questAddOpen && (
         <QuestSheet
@@ -522,6 +527,69 @@ export default function GoalsView({
           onClose={() => setAgentOpen(false)}
         />
       )}
+    </div>
+  );
+}
+
+// Phase 6: sticky section header for the single-scroll goals layout. Each
+// section gets a self-contained "+" affordance for its own type, replacing
+// the old tab row.
+function SectionHeader({ title, count, countHint, onAdd }) {
+  return (
+    <div style={{
+      position: "sticky",
+      top: 0,
+      zIndex: 5,
+      background: "var(--bg)",
+      borderBottom: "1px solid var(--border)",
+      marginBottom: 12,
+    }}>
+      <div style={{
+        display: "flex",
+        alignItems: "baseline",
+        justifyContent: "space-between",
+        gap: 12,
+        padding: "10px 0",
+      }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0 }}>
+          <h2 style={{
+            margin: 0,
+            fontSize: 18, fontWeight: 300,
+            fontFamily: "'Instrument Serif', Georgia, serif",
+            color: "var(--text-primary)",
+            letterSpacing: "-0.01em",
+            lineHeight: 1,
+          }}>{title}</h2>
+          <span style={{
+            fontSize: 11, fontFamily: "var(--font-mono)",
+            color: "var(--text-tertiary)", letterSpacing: "0.04em",
+            fontVariantNumeric: "tabular-nums",
+            lineHeight: 1,
+          }}>
+            ({count}{countHint ? ` · ${countHint}` : ""})
+          </span>
+        </div>
+        <button
+          onClick={onAdd}
+          title={`Add a ${title.toLowerCase().replace(/s$/, "")}`}
+          style={{
+            flexShrink: 0,
+            background: "var(--surface-2)",
+            color: "var(--text-primary)",
+            border: "1px solid var(--border)",
+            borderRadius: 6,
+            padding: "4px 10px",
+            fontSize: 11,
+            fontFamily: "var(--font-mono)",
+            letterSpacing: "0.04em",
+            lineHeight: 1,
+            cursor: "pointer",
+            transition: "all 0.15s",
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.color = "var(--accent)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-primary)"; }}
+        >+ Add</button>
+      </div>
     </div>
   );
 }
@@ -590,21 +658,21 @@ function GoalActions({ goal, level, onEdit, onDelete }) {
           <button
             onClick={() => onEdit(goal.id)}
             title="Edit goal"
+            className={styles.delBtn}
             style={{
-              ...S.delBtn,
               color: "var(--accent)",
               fontSize: 12,
             }}
           >✎</button>
-          <button onClick={() => onDelete(goal.id)} title="Delete" style={S.delBtn}>✕</button>
+          <button onClick={() => onDelete(goal.id)} title="Delete" className={styles.delBtn}>✕</button>
         </>
       ) : (
         <>
           <button
             onClick={() => onEdit(goal.id)}
             title="Edit anchor & notes"
+            className={styles.delBtn}
             style={{
-              ...S.delBtn,
               color: "var(--text-tertiary)",
               fontSize: 12,
             }}

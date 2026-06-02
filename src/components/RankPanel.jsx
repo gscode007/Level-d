@@ -1,6 +1,7 @@
 import { RANKS, RANK_COLOR, RANK_THRESHOLDS, CAT_META, USER_CATEGORIES } from "../constants";
 import { getRankPct, getNextThresh } from "../utils";
-import { S } from "../styles";
+import { getTier } from "../theme.config.js";
+import styles from "../styles.module.css";
 
 const DISPLAY = [...RANKS].reverse(); // S at top, E at bottom
 
@@ -36,7 +37,7 @@ export default function RankPanel({ overallScore, overallRank, catScores, catRan
     }}>
 
       {/* ── Rank Ladder ──────────────────────────────────────────────── */}
-      <p style={{ ...S.panelLbl, textAlign: "center", marginBottom: 14 }}>RANK PATH</p>
+      <p className={styles.panelLbl} style={{ textAlign: "center", marginBottom: 14 }}>RANK PATH</p>
 
       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
         {DISPLAY.map((rank, di) => {
@@ -59,7 +60,12 @@ export default function RankPanel({ overallScore, overallRank, catScores, catRan
 
           return (
             <div key={rank} style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", width: "100%" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", position: "relative" }}>
+              {/* Horizontal row at a fixed height so every rank's circle
+                  center sits on the same vertical grid. Without this the
+                  current-rank label (YOU ARE HERE + bar + XP-left) inflates
+                  its row, breaking the connector's rhythm — D → E ends up
+                  ~5 px farther apart than C → D. */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", position: "relative", height: 26, overflow: "visible" }}>
                 {/* Circle node */}
                 <div style={{
                   width: isCurrent ? 26 : 16,
@@ -88,8 +94,23 @@ export default function RankPanel({ overallScore, overallRank, catScores, catRan
                 <div style={{ flex: 1, minWidth: 0 }}>
                   {isCurrent ? (
                     <>
-                      <div style={{ fontSize: 7, fontFamily: "var(--font-mono)", color, fontWeight: 700, letterSpacing: "0.06em", marginBottom: 2 }}>
-                        YOU ARE HERE
+                      <div style={{
+                        display: "flex", alignItems: "baseline", gap: 5,
+                        marginBottom: 2,
+                      }}>
+                        <span style={{
+                          fontSize: 11, fontFamily: "'Instrument Serif', Georgia, serif",
+                          color, fontWeight: 400, letterSpacing: "-0.01em", lineHeight: 1,
+                          textShadow: `0 0 8px ${color}55`,
+                        }}>
+                          {getTier(rank).name}
+                        </span>
+                        <span style={{
+                          fontSize: 6, fontFamily: "var(--font-mono)",
+                          color: `${color}aa`, fontWeight: 700, letterSpacing: "0.08em",
+                        }}>
+                          YOU ARE HERE
+                        </span>
                       </div>
                       <div style={{ height: 2, background: "var(--border)", borderRadius: 1 }}>
                         <div style={{
@@ -108,8 +129,23 @@ export default function RankPanel({ overallScore, overallRank, catScores, catRan
                       )}
                     </>
                   ) : (
-                    <div style={{ fontSize: 8, fontFamily: "var(--font-mono)", color: isAchieved ? color : "var(--text-tertiary)", letterSpacing: "0.04em" }}>
-                      {RANK_THRESHOLDS[rank] === 0 ? "START" : RANK_THRESHOLDS[rank].toLocaleString()}
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 5, minWidth: 0 }}>
+                      <span style={{
+                        fontSize: 10, fontFamily: "'Instrument Serif', Georgia, serif",
+                        color: isAchieved ? color : "var(--text-secondary)",
+                        fontWeight: 400, letterSpacing: "-0.01em", lineHeight: 1,
+                        opacity: isAchieved ? 1 : 0.65,
+                      }}>
+                        {getTier(rank).name}
+                      </span>
+                      <span style={{
+                        fontSize: 7, fontFamily: "var(--font-mono)",
+                        color: "var(--text-tertiary)",
+                        letterSpacing: "0.04em",
+                        opacity: 0.7,
+                      }}>
+                        {RANK_THRESHOLDS[rank] === 0 ? "START" : RANK_THRESHOLDS[rank].toLocaleString()}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -133,7 +169,7 @@ export default function RankPanel({ overallScore, overallRank, catScores, catRan
 
       {/* ── Smart Insight ────────────────────────────────────────────── */}
       <div style={{ paddingTop: 12, borderTop: "1px solid var(--border)", marginTop: 12 }}>
-        <p style={{ ...S.panelLbl, marginBottom: 8 }}>FOCUS NOW</p>
+        <p className={styles.panelLbl} style={{ marginBottom: 8 }}>FOCUS NOW</p>
 
         <div style={{
           padding: "9px 10px",

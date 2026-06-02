@@ -1,25 +1,40 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { CATEGORIES } from "../constants";
-import { S } from "../styles";
+import styles from "../styles.module.css";
 import { useIsMobile } from "../hooks/useIsMobile";
+import SlimRankHeader from "./SlimRankHeader";
 import RankHero from "./RankHero";
 import IdentityPortrait from "./IdentityPortrait";
 import HabitsPanel from "./HabitsPanel";
 import CatCard from "./CatCard";
 import CategoryModal from "./CategoryModal";
 import WeeklyCheckin from "./WeeklyCheckin";
-import BossChallenge from "./BossChallenge";
+import TrialPanel from "./TrialPanel";
+import FreshArcHero from "./FreshArcHero";
+import ArcTrajectory from "./ArcTrajectory";
 
+/**
+ * Dashboard — restructured (Phase 4) into two zones:
+ *
+ *   TODAY        habits + the slim rank header — the DAILY GAME
+ *   BECOMING     identity + trial + full rank detail — the LONG LOOP
+ *
+ * Mobile-first: Today's first habit checkbox sits above the fold at 375 px.
+ * On desktop the same vertical zoning applies; the Today zone is wider /
+ * looser but always comes first.
+ */
 export default function Dashboard({
-  state, level, overallScore, overallRank,
+  state, level, overallScore, overallRank, arcView,
   levelComplete, canAdvance, bossEval, onEnableBoss, onDisableBoss,
   onAdvance, onCompleteHabitual, onCompleteMilestoneStep,
   onResistQuit, onSuccumbQuit, onGoToGoals,
   checkinDue, weeklyVotes, onCompleteCheckin, onSkipCheckin,
+  historicalCatScores,
 }) {
   const isMobile = useIsMobile();
   const [selectedCat, setSelectedCat] = useState(null);
   const [checkinOpen, setCheckinOpen] = useState(false);
+  const becomingRef = useRef(null);
 
   const catCardProps = (cat) => ({
     cat,
@@ -30,19 +45,51 @@ export default function Dashboard({
     onClick: () => setSelectedCat(cat),
   });
 
+  const headlineRank = arcView ? arcView.rank : overallRank;
+  function scrollToBecoming() {
+    becomingRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  // Phase 9: fresh-arc detection — new user on Level 1 with no habits and
+  // no completions yet. Renders the constellation hero in place of the
+  // habits panel until they define their first habit.
+  const habits = (level.goals || []).filter(g => g.type === "habitual");
+  const totalCompletions = (level.goals || []).reduce(
+    (n, g) => n + (g.completions?.length || 0), 0,
+  );
+  const isFreshArc =
+    state.arc?.status === "active" &&
+    habits.length === 0 &&
+    totalCompletions === 0;
+
   return (
     <div style={{
       padding: isMobile ? "20px 14px 24px" : "36px 44px 72px",
       maxWidth: isMobile ? "none" : 1200,
     }}>
-      {/* Header */}
-      <header style={{ marginBottom: isMobile ? 14 : 20 }}>
-        <p style={S.eyebrow}>Level {level.num} · Becoming</p>
-        <h1 style={{ ...S.pageH1, fontSize: isMobile ? 24 : 30 }}>
-          {level.title || "Becoming"}
-        </h1>
+      {/* ── Header ────────────────────────────────────────────────────────── */}
+      <header style={{ marginBottom: isMobile ? 10 : 14 }}>
+        {state.arc?.status === "active" ? (
+          <>
+            <p className={styles.eyebrow}>
+              {level.displayName || `Level ${level.sequenceInArc || level.num}`}
+              {" · Tier "}{state.rank?.current || "E"}
+            </p>
+            <h1 className={styles.pageH1} style={{ fontSize: isMobile ? 22 : 28 }}>
+              {state.arc.goal || "Arc"}
+            </h1>
+          </>
+        ) : (
+          <>
+            <p className={styles.eyebrow}>Level {level.num} · Becoming</p>
+            <h1 className={styles.pageH1} style={{ fontSize: isMobile ? 22 : 28 }}>
+              {level.title || "Becoming"}
+            </h1>
+          </>
+        )}
       </header>
 
+      {/* Weekly check-in nudge */}
       {checkinDue && (
         <button
           onClick={() => setCheckinOpen(true)}
@@ -50,7 +97,7 @@ export default function Dashboard({
             width: "100%",
             display: "flex", alignItems: "center", justifyContent: "space-between",
             gap: 12,
-            padding: isMobile ? "12px 14px" : "14px 18px",
+            padding: isMobile ? "10px 14px" : "12px 18px",
             marginBottom: 10,
             background: "rgba(250,204,21,0.06)",
             border: "1px solid rgba(250,204,21,0.25)",
@@ -60,8 +107,6 @@ export default function Dashboard({
             textAlign: "left",
             transition: "all 0.15s",
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(250,204,21,0.1)"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(250,204,21,0.06)"; }}
         >
           <div>
             <div style={{
@@ -82,9 +127,75 @@ export default function Dashboard({
         </button>
       )}
 
+      {/* ── TODAY ZONE ────────────────────────────────────────────────────── */}
+      <SlimRankHeader
+        rank={headlineRank}
+        arcView={arcView}
+        overallScore={overallScore}
+        canAdvance={canAdvance}
+        onAdvance={onAdvance}
+        onExpand={scrollToBecoming}
+      />
+
+      {isFreshArc ? (
+        <FreshArcHero
+          arcGoal={state.arc?.goal}
+          onAddHabit={onGoToGoals}
+          reduceMotionPref={state.reduceBackgroundMotion}
+        />
+      ) : (
+        <HabitsPanel
+          level={level}
+          state={state}
+          onCompleteHabitual={onCompleteHabitual}
+          onResistQuit={onResistQuit}
+          onSuccumbQuit={onSuccumbQuit}
+          onGoToGoals={onGoToGoals}
+        />
+      )}
+
+      {/* ── Zone divider ──────────────────────────────────────────────────── */}
+      <div
+        ref={becomingRef}
+        style={{
+          display: "flex", alignItems: "center", gap: 14,
+          margin: isMobile ? "26px 0 14px" : "34px 0 18px",
+        }}
+      >
+        <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+        <span style={{
+          fontSize: 11, fontFamily: "'Instrument Serif', Georgia, serif",
+          fontStyle: "italic", color: "var(--text-tertiary)",
+          letterSpacing: "0.06em",
+        }}>
+          Becoming
+        </span>
+        <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+      </div>
+
+      {/* ── BECOMING ZONE ─────────────────────────────────────────────────── */}
+      {state.arc?.status === "active" && (
+        <ArcTrajectory
+          arc={state.arc}
+          currentLevel={level}
+          tierRank={state.rank?.current || overallRank}
+        />
+      )}
+
+      <IdentityPortrait level={level} state={state} historicalCatScores={historicalCatScores} />
+
+      {(levelComplete || bossEval?.enabled) && (
+        <TrialPanel
+          bossEval={bossEval}
+          onEnableBoss={onEnableBoss}
+          onDisableBoss={onDisableBoss}
+        />
+      )}
+
       <RankHero
         overallScore={overallScore}
         overallRank={overallRank}
+        arcView={arcView}
         level={level}
         state={state}
         levelComplete={levelComplete}
@@ -93,48 +204,15 @@ export default function Dashboard({
         onAdvance={onAdvance}
       />
 
-      {/* Boss challenge surfaces once the rank target is reached (opt-in gate). */}
-      {(levelComplete || bossEval?.enabled) && (
-        <BossChallenge
-          bossEval={bossEval}
-          onEnableBoss={onEnableBoss}
-          onDisableBoss={onDisableBoss}
-        />
-      )}
-
-      <IdentityPortrait level={level} state={state} />
-
-      {isMobile ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <HabitsPanel
-            level={level}
-            state={state}
-            onCompleteHabitual={onCompleteHabitual}
-            onResistQuit={onResistQuit}
-            onSuccumbQuit={onSuccumbQuit}
-            onGoToGoals={onGoToGoals}
-          />
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
-            {CATEGORIES.map(cat => <CatCard key={cat} {...catCardProps(cat)} />)}
-          </div>
-        </div>
-      ) : (
-        <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-          <div style={{ width: 290, flexShrink: 0 }}>
-            <HabitsPanel
-              level={level}
-              state={state}
-              onCompleteHabitual={onCompleteHabitual}
-              onResistQuit={onResistQuit}
-              onSuccumbQuit={onSuccumbQuit}
-              onGoToGoals={onGoToGoals}
-            />
-          </div>
-          <div style={{ flex: 1, display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, alignContent: "start" }}>
-            {CATEGORIES.map(cat => <CatCard key={cat} {...catCardProps(cat)} />)}
-          </div>
-        </div>
-      )}
+      {/* Per-dimension cards — long-loop scoreboard */}
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(3, 1fr)",
+        gap: 8,
+        marginTop: 10,
+      }}>
+        {CATEGORIES.map(cat => <CatCard key={cat} {...catCardProps(cat)} />)}
+      </div>
 
       {selectedCat && (
         <CategoryModal

@@ -8,7 +8,6 @@ import QuestSheet from "./QuestSheet";
 import AgentSuggestModal from "./AgentSuggestModal";
 import EmptyHint from "./EmptyHint";
 import HabitCalendar from "./HabitCalendar";
-import QuitCalendar from "./QuitCalendar";
 
 export default function GoalsView({
   level, state, onAddGoal, onAddGoals, onDeleteGoal, onEditGoal,
@@ -32,19 +31,15 @@ export default function GoalsView({
   // a sticky header. The top + Add button defaults to adding a habit (the
   // most common case); per-section + buttons handle the rest.
   const [calendarGoal, setCalendarGoal]     = useState(null);
-  const [quitCalendarGoal, setQuitCalendarGoal] = useState(null);
   const t = todayStr();
 
   const habitual  = level.goals.filter(g => g.type === "habitual"   && g.category !== "Resilience");
   const milestones = level.goals.filter(g => g.type === "milestone"  && g.category !== "Resilience");
-  const quitGoals = level.goals.filter(g => g.type === "quitHabit");
   // Quests for this chapter (or unlinked); active first, then completed.
   const levelQuests = (quests || []).filter(q => !q.chapterId || q.chapterId === level.id);
   const activeQuests = levelQuests.filter(q => q.status !== "completed");
   const doneQuests   = levelQuests.filter(q => q.status === "completed");
 
-  const today = new Date();
-  const lastWeek = new Date(); lastWeek.setDate(lastWeek.getDate() - 7);
 
   return (
     <div className={styles.page} style={{ maxWidth: "none", ...(isMobile ? { padding: "20px 14px 24px" } : {}) }}>
@@ -62,9 +57,9 @@ export default function GoalsView({
           <button
             className={styles.addBtn}
             onClick={() => { setAddType("habitual"); setAddOpen(true); }}
-            title="Add a habit (use a section's + to add other types)"
+            title="Add a quest (use a section's + to add other types)"
           >
-            + Habit
+            + Quest
           </button>
         </div>
       </header>
@@ -113,14 +108,14 @@ export default function GoalsView({
 
       {/* ── Habits section ── */}
       <SectionHeader
-        title="Habits"
+        title="Quests"
         count={habitual.length}
         onAdd={() => { setAddType("habitual"); setAddOpen(true); }}
       />
       <div style={{ marginBottom: 18 }}>
         <div>
           {habitual.length === 0 && (
-            <EmptyHint text="Daily habits earn XP every completion." />
+            <EmptyHint text="Daily or weekly quests earn XP every completion." />
           )}
           {habitual.map(g => {
             const freq        = g.frequency || 7;
@@ -158,7 +153,7 @@ export default function GoalsView({
                     )}
                   </div>
                   <div style={{ fontSize: 10, color: "var(--text-tertiary)", marginTop: 3, letterSpacing: "0.06em", fontFamily: "var(--font-mono)", display: "flex", alignItems: "center", gap: 6 }}>
-                    {g.category.toUpperCase()} · +{xp} XP
+                    {isWeekly ? "Weekly Quest" : "Daily Quest"} / {g.category.toUpperCase()} · +{xp} XP
                     {isWeekly
                       ? ` · ${thisWeekCnt}/${freq} this week${streak > 1 ? ` · ${streak}W STK` : ""}`
                       : streak > 1 ? ` · ${streak}D STK` : ""}
@@ -283,128 +278,9 @@ export default function GoalsView({
         </div>
       </div>
 
-      {/* ── Quit Habits section ── */}
-      <SectionHeader
-        title="Quit habits"
-        count={quitGoals.length}
-        onAdd={() => { setAddType("quitHabit"); setAddOpen(true); }}
-      />
-      <div style={{ marginBottom: 18 }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {quitGoals.length === 0 && (
-            <EmptyHint text="Track habits you're trying to quit. XP only for beating your best streak." />
-          )}
-          {quitGoals.map(g => {
-            const checked       = state.lastCompletions[g.id] === t;
-            const slippedToday  = checked && (g.succumbLog || []).slice(-1)[0] === t;
-            const resistedToday = checked && !slippedToday;
-            const weeklySlips   = (g.succumbLog || []).filter(d => new Date(d) >= lastWeek).length;
-            const curStreak     = g.currentStreak || 0;
-            const bestStreak    = g.bestStreak || 0;
-            const accent        = "#A78BFA";
-
-            return (
-              <div key={g.id} style={{
-                padding: "14px 16px",
-                background: resistedToday ? "rgba(34,197,94,0.04)" : slippedToday ? "rgba(239,68,68,0.04)" : "rgba(167,139,250,0.05)",
-                border: `1px solid ${resistedToday ? "rgba(34,197,94,0.15)" : slippedToday ? "rgba(239,68,68,0.15)" : "rgba(167,139,250,0.18)"}`,
-                borderLeft: `2px solid ${accent}`,
-                borderRadius: 8,
-              }}>
-                {/* Header row */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
-                  <div>
-                    <div
-                      style={{ fontSize: 14, fontWeight: 500, color: "var(--text-primary)", marginBottom: 3, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
-                      onClick={() => setQuitCalendarGoal(g)}
-                      title="View calendar"
-                    >
-                      {g.name}
-                      <span style={{ fontSize: 8, color: "var(--text-tertiary)", opacity: 0.5 }}>📅</span>
-                    </div>
-                    <div style={{ fontSize: 9, color: "var(--text-tertiary)", fontFamily: "var(--font-mono)", letterSpacing: "0.06em" }}>
-                      RESILIENCE · QUIT HABIT
-                      {g.template ? ` · ${g.template.toUpperCase()} · ${g.difficulty?.toUpperCase()}` : ""}
-                    </div>
-                  </div>
-                  <GoalActions goal={g} level={level} onEdit={setEditingGoalId} onDelete={onDeleteGoal} />
-                </div>
-
-                {/* Streak stats */}
-                <div style={{ display: "flex", gap: 16, marginBottom: 12 }}>
-                  <StreakStat label="CURRENT" value={`${curStreak}D`} color={curStreak > 0 ? accent : "var(--text-tertiary)"} />
-                  <StreakStat label="BEST" value={`${bestStreak}D`} color={accent} />
-                  <StreakStat label="SLIPS / WEEK" value={weeklySlips} color={weeklySlips > 0 ? "var(--red)" : "var(--green)"} />
-                </div>
-
-                {/* XP info */}
-                {bestStreak > 0 && curStreak <= bestStreak && !resistedToday && (
-                  <div style={{ fontSize: 9, color: "var(--text-tertiary)", fontFamily: "var(--font-mono)", letterSpacing: "0.04em", marginBottom: 10 }}>
-                    {curStreak < bestStreak
-                      ? `${bestStreak - curStreak} more day${bestStreak - curStreak !== 1 ? "s" : ""} to beat your record`
-                      : "One more day to set a new record!"}
-                  </div>
-                )}
-
-                {/* Progress bar */}
-                {bestStreak > 0 && (
-                  <div style={{ height: 3, background: "var(--border)", borderRadius: 2, marginBottom: 12 }}>
-                    <div style={{
-                      height: "100%",
-                      width: `${Math.min(100, bestStreak > 0 ? Math.round((curStreak / bestStreak) * 100) : 0)}%`,
-                      background: accent,
-                      borderRadius: 2,
-                      boxShadow: `0 0 6px ${accent}80`,
-                      transition: "width 0.5s var(--easing-out)",
-                    }} />
-                  </div>
-                )}
-
-                {/* Check-in buttons */}
-                {checked ? (
-                  <div style={{
-                    display: "inline-flex", alignItems: "center", gap: 6,
-                    padding: "5px 10px", borderRadius: 6,
-                    background: resistedToday ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.1)",
-                    border: `1px solid ${resistedToday ? "rgba(34,197,94,0.25)" : "rgba(239,68,68,0.25)"}`,
-                    fontSize: 10, fontWeight: 700, fontFamily: "var(--font-mono)", letterSpacing: "0.06em",
-                    color: resistedToday ? "var(--green)" : "var(--red)",
-                  }}>
-                    {resistedToday ? "✓ RESISTED TODAY" : "✗ SLIPPED TODAY"}
-                  </div>
-                ) : (
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button
-                      onClick={() => onResistQuit?.(g.id)}
-                      style={{
-                        flex: 1, padding: "8px 0", borderRadius: 6,
-                        background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.25)",
-                        color: "var(--green)", fontWeight: 700, fontFamily: "var(--font-mono)",
-                        fontSize: 11, letterSpacing: "0.04em", cursor: "pointer",
-                        transition: "all 0.15s",
-                      }}
-                    >✓ Resisted Today</button>
-                    <button
-                      onClick={() => onSuccumbQuit?.(g.id)}
-                      style={{
-                        flex: 1, padding: "8px 0", borderRadius: 6,
-                        background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)",
-                        color: "var(--red)", fontWeight: 700, fontFamily: "var(--font-mono)",
-                        fontSize: 11, letterSpacing: "0.04em", cursor: "pointer",
-                        transition: "all 0.15s",
-                      }}
-                    >✗ I Slipped</button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
       {/* ── Quests section ── */}
       <SectionHeader
-        title="Quests"
+        title="Side Quests"
         count={activeQuests.length}
         countHint={doneQuests.length ? `${doneQuests.length} done` : null}
         onAdd={() => setQuestAddOpen(true)}
@@ -412,7 +288,7 @@ export default function GoalsView({
       <div style={{ marginBottom: 16 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {levelQuests.length === 0 && (
-            <EmptyHint text="One-off side quests. Complete once for a flat XP reward. Mark signature quests to define what leveling up means." />
+            <EmptyHint text="One-off side quests. Complete once for a flat XP reward. Mark signature side quests to define what leveling up means." />
           )}
           {[...activeQuests, ...doneQuests].map(q => {
             const done   = q.status === "completed";
@@ -473,7 +349,7 @@ export default function GoalsView({
                 {canEditGoal(q, level) ? (
                   <button
                     onClick={() => onDeleteQuest?.(q.id)}
-                    title="Delete quest"
+                    title="Delete side quest"
                     className={styles.delBtn}
                     style={{ flexShrink: 0 }}
                   >✕</button>
@@ -515,9 +391,6 @@ export default function GoalsView({
         <HabitCalendar goal={calendarGoal} onClose={() => setCalendarGoal(null)} />
       )}
 
-      {quitCalendarGoal && (
-        <QuitCalendar goal={quitCalendarGoal} onClose={() => setQuitCalendarGoal(null)} />
-      )}
 
       {agentOpen && (
         <AgentSuggestModal

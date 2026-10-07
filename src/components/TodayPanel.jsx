@@ -13,7 +13,7 @@ export default function TodayPanel({ level, lastCompletions, streaks }) {
     <div className={styles.panel} style={{ display: "flex", flexDirection: "column" }}>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-        <p className={styles.panelLbl}>Today's Habits</p>
+        <p className={styles.panelLbl}>Today's Quests</p>
         <span style={{
           fontSize: 13, fontWeight: 700,
           color: allDone ? "var(--green)" : "var(--text-primary)",
@@ -52,7 +52,7 @@ export default function TodayPanel({ level, lastCompletions, streaks }) {
       )}
 
       {habits.length === 0 && (
-        <p style={{ fontSize: 13, color: "var(--text-tertiary)", flex: 1 }}>No habits yet.</p>
+        <p style={{ fontSize: 13, color: "var(--text-tertiary)", flex: 1 }}>No quests yet.</p>
       )}
 
       <div style={{ display: "flex", flexDirection: "column" }}>

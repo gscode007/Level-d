@@ -279,7 +279,7 @@ export default function RankHero({ overallScore, overallRank, arcView, level, st
             : <Stat label="TARGET" value={level.requiredRank || "A"} />
           }
           <Stat label="TODAY"  value={todayXP > 0 ? `+${todayXP}` : "—"} color={todayXP > 0 ? "var(--green)" : "var(--text-tertiary)"} glow={todayXP > 0} />
-          <Stat label="DONE"   value={totalHabits ? `${doneToday}/${totalHabits}` : "—"} color={doneToday === totalHabits && totalHabits > 0 ? "var(--green)" : "var(--text-primary)"} glow={doneToday === totalHabits && totalHabits > 0} />
+          <Stat label="DONE"   value={totalQuests ? `${doneToday}/${totalHabits}` : "—"} color={doneToday === totalHabits && totalHabits > 0 ? "var(--green)" : "var(--text-primary)"} glow={doneToday === totalHabits && totalHabits > 0} />
           <Stat label="STREAK" value={maxStreak > 0 ? `${maxStreak}D` : "—"} color={maxStreak >= 3 ? "var(--yellow)" : "var(--text-tertiary)"} glow={maxStreak >= 3} />
         </div>
       )}

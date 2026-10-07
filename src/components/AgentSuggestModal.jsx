@@ -45,7 +45,6 @@ export default function AgentSuggestModal({ level, existingGoalNames, onAddGoals
         const initial = {};
         (data.habits     || []).forEach((_, i) => { initial[`habit-${i}`]    = true; });
         (data.milestones || []).forEach((_, i) => { initial[`milestone-${i}`] = true; });
-        (data.quitHabits || []).forEach((_, i) => { initial[`quit-${i}`]     = true; });
         setSelected(initial);
       })
       .catch((e) => { if (!cancelled) setError(e.message || String(e)); })
@@ -85,22 +84,6 @@ export default function AgentSuggestModal({ level, existingGoalNames, onAddGoals
       });
     });
 
-    (suggestions.quitHabits || []).forEach((q, i) => {
-      if (!selected[`quit-${i}`]) return;
-      out.push({
-        name: q.name,
-        category: "Resilience",
-        template: q.template,
-        difficulty: q.difficulty,
-        type: "quitHabit",
-        currentStreak: 0,
-        bestStreak: 0,
-        lastResistDate: null,
-        lastCheckedDate: null,
-        succumbLog: [],
-        resistLog: [],
-      });
-    });
 
     if (out.length === 0) {
       onClose();
@@ -112,8 +95,7 @@ export default function AgentSuggestModal({ level, existingGoalNames, onAddGoals
 
   const selectedCount = Object.values(selected).filter(Boolean).length;
   const totalCount    = (suggestions.habits?.length || 0)
-                      + (suggestions.milestones?.length || 0)
-                      + (suggestions.quitHabits?.length || 0);
+                      + (suggestions.milestones?.length || 0);
 
   return (
     <div
@@ -168,9 +150,8 @@ export default function AgentSuggestModal({ level, existingGoalNames, onAddGoals
 
         {!loading && !error && (
           <>
-            <Section title="Habits" items={suggestions.habits} kindPrefix="habit" selected={selected} toggle={toggle} renderItem={renderHabit} />
+            <Section title="Quests" items={suggestions.habits} kindPrefix="habit" selected={selected} toggle={toggle} renderItem={renderHabit} />
             <Section title="Milestones" items={suggestions.milestones} kindPrefix="milestone" selected={selected} toggle={toggle} renderItem={renderMilestone} />
-            <Section title="Quit Habits" items={suggestions.quitHabits} kindPrefix="quit" selected={selected} toggle={toggle} renderItem={renderQuit} />
 
             {totalCount === 0 && (
               <div style={{ padding: "30px 0", textAlign: "center" }}>

@@ -154,7 +154,7 @@ export default function AddSheet({ type, editing, onAdd, onUpdate, onClose }) {
   }
 
   const titleLabel = isEditMode ? "Edit" : "New";
-  const typeLabel  = isQuit ? "Quit Habit" : effectiveType === "habitual" ? "Habit" : "Milestone";
+  const typeLabel  = isQuit ? "Quit Habit" : effectiveType === "habitual" ? (frequency === 7 ? "Daily Quest" : "Weekly Quest") : "Milestone";
 
   return (
     <div
@@ -501,7 +501,7 @@ export default function AddSheet({ type, editing, onAdd, onUpdate, onClose }) {
               </div>
 
               <div>
-                <label className={styles.fLbl} style={{ fontSize: 8 }}>Notes — why this habit matters</label>
+                <label className={styles.fLbl} style={{ fontSize: 8 }}>Notes — why this quest matters</label>
                 <textarea
                   className={styles.fInput}
                   style={{ minHeight: 60, resize: "vertical", fontFamily: "'Geist', sans-serif", lineHeight: 1.5 }}

@@ -124,7 +124,7 @@ export default function SettingsView({
 
       {/* ── Account ─────────────────────────────────────────────────────── */}
       <Section title="Danger zone">
-        <Row label="Reset all progress" hint="Wipes habits, completions, levels, arc, and rank. Cannot be undone.">
+        <Row label="Reset all progress" hint="Wipes quests, completions, levels, arc, and rank. Cannot be undone.">
           <button
             onClick={() => { if (window.confirm("Reset ALL progress? This cannot be undone.")) onReset(); }}
             className={styles.ghostBtn}

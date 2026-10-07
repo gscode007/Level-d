@@ -17,7 +17,6 @@ export default function CategoryModal({
 
   const habits    = (level.goals || []).filter(g => g.type === "habitual"   && g.category === cat);
   const milestones = (level.goals || []).filter(g => g.type === "milestone" && g.category === cat);
-  const quitGoals = (level.goals || []).filter(g => g.type === "quitHabit" && g.category === cat);
 
   return (
     <div
@@ -118,11 +117,11 @@ export default function CategoryModal({
                 HOW RESILIENCE WORKS
               </p>
               <p style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: 8 }}>
-                +5 XP automatically every time you complete any habit. Decays if you miss days — −2 XP on day 1, −3 on day 2, and so on.
+                +5 XP automatically every time you complete any quest. Decays if you miss days — −2 XP on day 1, −3 on day 2, and so on.
               </p>
               <div style={{ display: "flex", gap: 16 }}>
                 <MiniStat label="MISSED DAYS" value={state.consecutiveMissed || 0} color={state.consecutiveMissed > 0 ? "var(--red)" : "var(--green)"} />
-                <MiniStat label="LAST HABIT" value={state.lastHabitDate ? new Date(state.lastHabitDate).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—"} />
+                <MiniStat label="LAST QUEST" value={state.lastHabitDate ? new Date(state.lastHabitDate).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—"} />
               </div>
             </div>
           )}
@@ -161,6 +160,7 @@ export default function CategoryModal({
                         display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap",
                       }}>
                         {g.name}
+                        <Tag color={accent}>{isWeekly ? "Weekly Quest" : "Daily Quest"}</Tag>
                         {isWeekly && <Tag color={accent}>{freq}×/WK</Tag>}
                         {g.locked && <Tag>⚿</Tag>}
                       </div>
@@ -281,40 +281,7 @@ export default function CategoryModal({
             </Section>
           )}
 
-          {/* Quit habits */}
-          {quitGoals.length > 0 && (
-            <Section label={`Quit Habits · ${quitGoals.length}`}>
-              {quitGoals.map(g => {
-                const checked      = state.lastCompletions?.[g.id] === t;
-                const slippedToday = checked && (g.succumbLog || []).slice(-1)[0] === t;
-                const lastWeek     = new Date(); lastWeek.setDate(lastWeek.getDate() - 7);
-                const weeklySlips  = (g.succumbLog || []).filter(d => new Date(d) >= lastWeek).length;
-                return (
-                  <div key={g.id} style={{
-                    padding: "11px 13px", marginBottom: 6,
-                    background: `${accent}07`, border: `1px solid ${accent}22`,
-                    borderLeft: `2px solid ${accent}`, borderRadius: 7,
-                  }}>
-                    <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)", marginBottom: 5 }}>{g.name}</div>
-                    <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-                      <MiniStat label="STREAK" value={`${g.currentStreak || 0}D`} color={accent} />
-                      <MiniStat label="BEST" value={`${g.bestStreak || 0}D`} color={accent} />
-                      <MiniStat label="SLIPS/WK" value={weeklySlips} color={weeklySlips > 0 ? "var(--red)" : "var(--green)"} />
-                      {checked && (
-                        <MiniStat
-                          label="TODAY"
-                          value={slippedToday ? "SLIPPED" : "RESISTED"}
-                          color={slippedToday ? "var(--red)" : "var(--green)"}
-                        />
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </Section>
-          )}
-
-          {habits.length === 0 && milestones.length === 0 && quitGoals.length === 0 && (
+          {habits.length === 0 && milestones.length === 0 && (
             <p style={{ fontSize: 13, color: "var(--text-tertiary)", textAlign: "center", padding: "24px 0", fontStyle: "italic" }}>
               No goals for {cat} this level.
             </p>

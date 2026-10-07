@@ -14,7 +14,6 @@ export default function HabitsPanel({ level, state, onCompleteHabitual, onResist
 
   const t         = todayStr();
   const habits    = (level.goals || []).filter(g => g.type === "habitual");
-  const quitGoals = (level.goals || []).filter(g => g.type === "quitHabit");
 
   // "done" = daily habits completed today OR weekly habits that met this week's target
   const done = habits.filter(g => {
@@ -97,7 +96,7 @@ export default function HabitsPanel({ level, state, onCompleteHabitual, onResist
       {/* Header */}
       <div style={{ marginBottom: 14 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-          <p className={styles.panelLbl}>Today's Habits</p>
+          <p className={styles.panelLbl}>Today's Quests</p>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {todayXP > 0 && (
               <span style={{
@@ -152,9 +151,9 @@ export default function HabitsPanel({ level, state, onCompleteHabitual, onResist
         {habits.length === 0 && (
           <div style={{ padding: "24px 0", textAlign: "center" }}>
             <p style={{ fontSize: 13, color: "var(--text-tertiary)", marginBottom: 14 }}>
-              No habits defined yet.
+              No quests defined yet.
             </p>
-            <button className={styles.ghostBtn} onClick={onGoToGoals}>+ Define habits</button>
+            <button className={styles.ghostBtn} onClick={onGoToGoals}>+ Define quests</button>
           </div>
         )}
 
@@ -229,7 +228,7 @@ export default function HabitsPanel({ level, state, onCompleteHabitual, onResist
                   fontFamily: "var(--font-mono)", letterSpacing: "0.06em", marginTop: 2,
                   display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap",
                 }}>
-                  <span>{g.category.toUpperCase()}</span>
+                  <span>{isWeekly ? "Weekly Quest" : "Daily Quest"} / {g.category.toUpperCase()}</span>
                   {getGoalIdentities(g).filter(id => id !== g.category).map(id => {
                     const meta = CAT_META[id];
                     if (!meta) return null;
@@ -330,76 +329,8 @@ export default function HabitsPanel({ level, state, onCompleteHabitual, onResist
         })}
       </div>
 
-      {/* ── Quit Habits section ── */}
-      {quitGoals.length > 0 && (
-        <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--border-light)" }}>
-          <p className={styles.panelLbl} style={{ marginBottom: 8 }}>Quit Habits</p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {quitGoals.map(g => {
-              const checked    = state.lastCompletions?.[g.id] === t;
-              const slippedToday = checked && (g.succumbLog || []).slice(-1)[0] === t;
-              const resistedToday = checked && !slippedToday;
-
-              const lastWeek = new Date();
-              lastWeek.setDate(lastWeek.getDate() - 7);
-              const weeklySlips = (g.succumbLog || []).filter(d => new Date(d) >= lastWeek).length;
-
-              return (
-                <div key={g.id} style={{
-                  padding: "10px 12px",
-                  background: resistedToday ? "rgba(34,197,94,0.05)" : slippedToday ? "rgba(239,68,68,0.05)" : "rgba(167,139,250,0.05)",
-                  border: `1px solid ${resistedToday ? "rgba(34,197,94,0.2)" : slippedToday ? "rgba(239,68,68,0.2)" : "rgba(167,139,250,0.2)"}`,
-                  borderLeft: "3px solid #A78BFA",
-                  borderRadius: 6,
-                }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 7 }}>
-                    <div>
-                      <div style={{ fontSize: 12, fontWeight: 500, color: "var(--text-primary)", marginBottom: 2 }}>{g.name}</div>
-                      <div style={{ fontSize: 9, color: "var(--text-tertiary)", fontFamily: "var(--font-mono)", letterSpacing: "0.06em" }}>
-                        {g.currentStreak || 0}D STREAK · BEST {g.bestStreak || 0}D
-                        {weeklySlips > 0 ? ` · ${weeklySlips} SLIP${weeklySlips !== 1 ? "S" : ""}/WK` : ""}
-                      </div>
-                    </div>
-                    {checked ? (
-                      <span style={{
-                        fontSize: 9, fontFamily: "var(--font-mono)", fontWeight: 700, letterSpacing: "0.06em",
-                        color: resistedToday ? "var(--green)" : "var(--red)",
-                        background: resistedToday ? "rgba(34,197,94,0.12)" : "rgba(239,68,68,0.12)",
-                        border: `1px solid ${resistedToday ? "rgba(34,197,94,0.3)" : "rgba(239,68,68,0.3)"}`,
-                        padding: "2px 7px", borderRadius: 4,
-                      }}>
-                        {resistedToday ? "RESISTED" : "SLIPPED"}
-                      </span>
-                    ) : (
-                      <div style={{ display: "flex", gap: 5 }}>
-                        <button
-                          onClick={() => onResistQuit?.(g.id)}
-                          style={{
-                            fontSize: 9, fontWeight: 700, fontFamily: "var(--font-mono)",
-                            background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)",
-                            color: "var(--green)", borderRadius: 4, padding: "3px 8px", cursor: "pointer",
-                          }}
-                        >✓ OK</button>
-                        <button
-                          onClick={() => onSuccumbQuit?.(g.id)}
-                          style={{
-                            fontSize: 9, fontWeight: 700, fontFamily: "var(--font-mono)",
-                            background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)",
-                            color: "var(--red)", borderRadius: 4, padding: "3px 8px", cursor: "pointer",
-                          }}
-                        >✗ Slipped</button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
       {/* Add habit shortcut */}
-      {(habits.length > 0 || quitGoals.length > 0) && (
+      {habits.length > 0 && (
         <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--border-light)" }}>
           <button
             onClick={onGoToGoals}

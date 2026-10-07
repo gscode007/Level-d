@@ -23,10 +23,9 @@ import QuestSheet from "./QuestSheet";
 const STEPS = ["Arc", "Identities", "Weights", "Goals"];
 
 const GOAL_TYPES = [
-  { key: "habitual",  label: "Habit" },
+  { key: "habitual",  label: "Quest" },
   { key: "milestone", label: "Milestone" },
-  { key: "quitHabit", label: "Quit" },
-  { key: "quest",     label: "Quest" },
+  { key: "quest",     label: "Side Quest" },
 ];
 
 export default function SetupWizard({ level, onFinish }) {
@@ -145,7 +144,7 @@ export default function SetupWizard({ level, onFinish }) {
           <div style={{ animation: "fadeUp 0.3s var(--easing-out)" }}>
             <p className={styles.eyebrow}>{arcGoal}</p>
             <h1 className={styles.setupH}>Who you're<br />becoming</h1>
-            <p className={styles.setupDesc}>An identity statement for each dimension. Your habits will be evidence for these.</p>
+            <p className={styles.setupDesc}>An identity statement for each dimension. Your quests will be evidence for these.</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
               {USER_CATEGORIES.map((cat) => (
                 <div key={cat} className={styles.catGoalRow}>
@@ -173,7 +172,7 @@ export default function SetupWizard({ level, onFinish }) {
                   <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)", letterSpacing: "0.03em" }}>Resilience</span>
                 </div>
                 <span style={{ fontSize: 12, color: "var(--text-tertiary)", fontFamily: "var(--font-mono)", letterSpacing: "0.04em" }}>
-                  AUTO · +5 XP per habit · decays on missed days
+                  AUTO · +5 XP per quest · decays on missed days
                 </span>
               </div>
             </div>
@@ -249,7 +248,7 @@ export default function SetupWizard({ level, onFinish }) {
             <p className={styles.eyebrow}>{arcGoal}</p>
             <h1 className={styles.setupH}>Set your<br />starting goals</h1>
             <p className={styles.setupDesc}>
-              A few habits, milestones, quit-habits, or quests to begin with. These lock 3 days
+              A few quests, milestones, or side quests to begin with. These lock 3 days
               after the level starts — choose carefully. You can always add more later.
             </p>
 
@@ -282,7 +281,7 @@ export default function SetupWizard({ level, onFinish }) {
               {goals.map((g, i) => {
                 const cat = g.type === "quitHabit" ? "Resilience" : g.category;
                 const meta = CAT_META[cat] || {};
-                const typeLabel = g.type === "quitHabit" ? "QUIT" : g.type === "milestone" ? "MILESTONE" : "HABIT";
+                const typeLabel = g.type === "quitHabit" ? "QUIT" : g.type === "milestone" ? "MILESTONE" : (g.frequency || 7) === 7 ? "DAILY QUEST" : "WEEKLY QUEST";
                 return (
                   <SetupGoalRow key={`g${i}`} accent={meta.accent} symbol={meta.symbol}
                     name={g.name} meta={`${typeLabel} · ${cat.toUpperCase()}`} onRemove={() => removeGoal(i)} />
@@ -292,7 +291,7 @@ export default function SetupWizard({ level, onFinish }) {
                 const meta = CAT_META[q.dimension] || {};
                 return (
                   <SetupGoalRow key={`q${i}`} accent="var(--yellow)" symbol="◇"
-                    name={q.title} meta={`QUEST · ${q.dimension.toUpperCase()} · ${String(q.band).toUpperCase()}${q.signature ? " · ★" : ""}`}
+                    name={q.title} meta={`SIDE QUEST · ${q.dimension.toUpperCase()} · ${String(q.band).toUpperCase()}${q.signature ? " · ★" : ""}`}
                     onRemove={() => removeQuest(i)} />
                 );
               })}

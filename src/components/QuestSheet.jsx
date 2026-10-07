@@ -44,7 +44,7 @@ export default function QuestSheet({ chapterTitle, onAdd, onClose }) {
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
           <h2 style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)", letterSpacing: "0.02em" }}>
-            New Quest
+            New Side Quest
           </h2>
           <button
             onClick={onClose}
@@ -109,7 +109,7 @@ export default function QuestSheet({ chapterTitle, onAdd, onClose }) {
           <Toggle
             checked={signature}
             onToggle={() => setSignature(v => !v)}
-            label="Signature quest"
+            label="Signature side quest"
             hint="Defines what advancement looks like — counts toward this level's trial."
             color="var(--yellow)"
           />
@@ -144,7 +144,7 @@ export default function QuestSheet({ chapterTitle, onAdd, onClose }) {
           className={styles.nextBtn}
           style={{ opacity: title.trim() ? 1 : 0.35, marginTop: 4 }}
         >
-          Add Quest
+          Add Side Quest
         </button>
       </div>
     </div>

@@ -42,13 +42,13 @@ export default function StrictCheckin({ checkin, onComplete, busyGoalId = null }
       <div className="checkin-eyebrow"><span className="checkin-dot" /> LEVEL’D · CHECK-IN</div>
       <h1 id="checkin-title">Time to follow through.</h1>
       <p id="checkin-description">Already did it? Record it here. Still to do? Choose when you’ll check back in.</p>
-      <div className="checkin-count">{checkin.pending.length} {checkin.pending.length === 1 ? "habit" : "habits"} to record</div>
+      <div className="checkin-count">{checkin.pending.length} {checkin.pending.length === 1 ? "quest" : "quests"} to record</div>
       <div className="checkin-habits">
         {displayedHabits.map(goal => (
           <label className={`checkin-habit${pendingIds.has(goal.id) ? "" : " checkin-habit-recorded"}`} key={goal.id}>
             <input type="checkbox" checked={!pendingIds.has(goal.id)} disabled={!!busyGoalId || !pendingIds.has(goal.id)} onChange={() => onComplete(goal.id, { suppressNote: true })} />
             <span><strong>{goal.name}</strong>
-              <small>{goal.category}{(goal.frequency || 7) < 7 ? ` · ${goal.frequency} times / week` : " · Daily"}</small>
+              <small>{(goal.frequency || 7) === 7 ? "Daily Quest" : "Weekly Quest"} / {goal.category}{(goal.frequency || 7) < 7 ? ` · ${goal.frequency} times / week` : " · Daily"}</small>
               {goal.anchor?.cue && <em>{goal.anchor.cue}</em>}
             </span>
             <span className="checkin-record">{busyGoalId === goal.id ? "Saving…" : pendingIds.has(goal.id) ? "Done" : "Recorded"}</span>
@@ -57,7 +57,7 @@ export default function StrictCheckin({ checkin, onComplete, busyGoalId = null }
       </div>
       <div className="checkin-later">
         <h2>Check back later</h2>
-        <p>The remaining habits will be waiting for you.</p>
+        <p>The remaining quests will be waiting for you.</p>
         <div className="checkin-presets">
           {[15, 30, 60].map(minutes => <button key={minutes} type="button" onClick={() => checkin.snooze(Date.now() + minutes * 60_000)}>In {minutes} min</button>)}
         </div>

@@ -95,7 +95,7 @@ export default function OAuthAuthorize({ user, onSignIn, signInError }) {
           Allow <span style={{ color: "var(--accent)" }}>Claude</span> to read &amp; write your Level-d data?
         </h1>
         <p className={styles.setupDesc} style={{ marginBottom: 18 }}>
-          Granting access lets Claude see your habits, identities, weekly votes, and create or complete goals on your behalf.
+          Granting access lets Claude see your quests, identities, weekly votes, and create or complete goals on your behalf.
         </p>
 
         <div style={{
@@ -117,9 +117,9 @@ export default function OAuthAuthorize({ user, onSignIn, signInError }) {
           listStyle: "none", padding: 0, margin: "0 0 22px",
           display: "flex", flexDirection: "column", gap: 8,
         }}>
-          <Permission text="Read your chapter, identities, habits, and weekly summary" />
-          <Permission text="Create habits, milestones, and quit-habits" />
-          <Permission text="Mark habits complete for today" />
+          <Permission text="Read your chapter, identities, quests, and weekly summary" />
+          <Permission text="Create quests and milestones" />
+          <Permission text="Mark quests complete for today" />
         </ul>
 
         {error && (

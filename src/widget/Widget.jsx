@@ -34,7 +34,7 @@ export default function Widget() {
     return onSnapshot(doc(db, 'users', user.uid), snapshot => {
       setState(snapshot.exists() ? snapshot.data() : null);
       setLoading(false);
-    }, () => { setLoading(false); setError('Could not sync your habits. Check your connection and sign-in.'); });
+    }, () => { setLoading(false); setError('Could not sync your quests. Check your connection and sign-in.'); });
   }, [user]);
 
   const needsAccount = !loading && (!user || !state?.setupDone);
@@ -74,14 +74,14 @@ export default function Widget() {
       </header>
       {open && !checkin.active && <section className="widget-panel">
         {!user ? <>
-          <h1>Your habits. Right here.</h1>
+          <h1>Your quests. Right here.</h1>
           <p>Sign in once to connect this independent widget to Level’d.</p>
           <button className="widget-primary" disabled={!!busy || loading} onClick={login}>{busy ? 'Signing in…' : 'Connect Google account'}</button>
-        </> : loading ? <p>Syncing your habits…</p> : !state?.setupDone ? <>
-          <h1>No habits connected yet.</h1><p>Finish setup in Level’d using this Google account. This widget will pick up your habits automatically.</p>
+        </> : loading ? <p>Syncing your quests…</p> : !state?.setupDone ? <>
+          <h1>No quests connected yet.</h1><p>Finish setup in Level’d using this Google account. This widget will pick up your quests automatically.</p>
         </> : <>
-          <h1>{checkin.pending.length ? `${checkin.pending.length} habits remaining` : 'All recorded for now.'}</h1>
-          <p>Next check-in: {next}. Complete your habits or choose a later time when it appears.</p>
+          <h1>{checkin.pending.length ? `${checkin.pending.length} quests remaining` : 'All recorded for now.'}</h1>
+          <p>Next check-in: {next}. Complete your quests or choose a later time when it appears.</p>
           <button className="widget-primary" disabled={!checkin.pending.length} onClick={() => { setError(''); checkin.checkNow(); }}>Check in now</button>
           <label className="widget-setting">Every
             <select aria-label="Check-in interval" value={checkin.schedule?.settings.intervalMinutes || 120}

@@ -119,7 +119,7 @@ export default function LevelDetailModal({ level, onClose }) {
               </div>
               <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
                 <SummaryCard label="Total XP" value={totalXP} color="var(--accent)" glow />
-                <SummaryCard label="Habit Completions" value={totalHabitCompletions} />
+                <SummaryCard label="Quest Completions" value={totalHabitCompletions} />
                 <SummaryCard
                   label={`Milestones ${completedMilestones}/${milestoneStats.length}`}
                   value={milestoneStats.length > 0
@@ -137,7 +137,7 @@ export default function LevelDetailModal({ level, onClose }) {
           {!hasActivity && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
               <SummaryCard label="Total XP" value={totalXP} color="var(--accent)" glow />
-              <SummaryCard label="Habit Completions" value={totalHabitCompletions} />
+              <SummaryCard label="Quest Completions" value={totalHabitCompletions} />
               <SummaryCard label={`Milestones ${completedMilestones}/${milestoneStats.length}`} value={milestoneStats.length > 0 ? `${Math.round((completedMilestones / milestoneStats.length) * 100)}%` : "—"} />
             </div>
           )}
@@ -188,7 +188,7 @@ export default function LevelDetailModal({ level, onClose }) {
                         {g.name}
                       </div>
                       <div style={{ fontSize: 9, color: "var(--text-tertiary)", fontFamily: "var(--font-mono)", letterSpacing: "0.06em", marginTop: 2 }}>
-                        {g.category.toUpperCase()}
+                        {g.type === "habitual" ? ((g.frequency || 7) === 7 ? "Daily Quest / " : "Weekly Quest / ") : ""}{g.category.toUpperCase()}
                         {g.template ? ` · ${g.template.toUpperCase()} · ${g.difficulty?.toUpperCase()}` : ""}
                         {g.locked ? " · ⚿" : ""}
                       </div>

@@ -74,7 +74,7 @@ export const LABELS = {
   emptyState: {
     constellationHero: "Your first step lights the sky.",
     radarBaseline:     "Your baseline — return to see how far you've grown.",
-    portraitWaiting:   "Complete habits to see your portrait take shape.",
+    portraitWaiting:   "Complete quests to see your portrait take shape.",
   },
 };
 

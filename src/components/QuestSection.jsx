@@ -1,5 +1,5 @@
 import { getThisWeekCount, todayStr } from "../utils";
-import styles from "./quests.module.css";
+import styles from "../styles.module.css";
 
 export function questGroups(goals) {
   return [
@@ -8,33 +8,24 @@ export function questGroups(goals) {
   ];
 }
 
-export default function QuestSection({ group, state, onAdd, manage = false, children }) {
+export default function QuestSection({ group, state, children }) {
   const weekly = group.key === "weekly";
-  const target = group.goals.reduce((sum, g) => sum + (weekly ? g.frequency : 1), 0);
-  const completed = group.goals.reduce((sum, g) => sum + (weekly
-    ? Math.min(getThisWeekCount(g.completions || []), g.frequency)
-    : Number(state.lastCompletions?.[g.id] === todayStr())), 0);
-  const cleared = target > 0 && completed >= target;
+  const done = group.goals.filter(g => weekly
+    ? getThisWeekCount(g.completions || []) >= (g.frequency || 7)
+    : state.lastCompletions?.[g.id] === todayStr()).length;
   return (
-    <section className={styles.section} aria-label={group.title}>
-      <header className={styles.header}>
-        <div>
-          <div className={styles.heading}>
-            <h2>{group.title}</h2>
-            <span className={styles.count}>{group.goals.length}</span>
-          </div>
-          <p>{weekly ? "Make progress at your own pace this week." : "A little progress, every day."}</p>
-        </div>
-        {onAdd && <button className={styles.add} onClick={onAdd} aria-label={`${manage ? "Manage" : "Add"} ${weekly ? "weekly" : "daily"} quest`}>{manage ? "Manage" : "+ Add"}</button>}
-      </header>
-      {target > 0 && <div className={styles.progress}>
-        <span className={cleared ? styles.cleared : undefined}>{cleared ? (weekly ? "Weekly targets met" : "Daily quests cleared") : `${completed}/${target} ${weekly ? "completions this week" : "completed today"}`}</span>
-        <progress value={completed} max={target} aria-label={`${group.title} progress`} />
-      </div>}
-      {group.goals.length ? <div className={styles.list}>{children}</div> : <div className={styles.empty}>
-        <p>{weekly ? "Set a weekly target for quests that need more flexibility." : "Add your first daily quest to start building momentum."}</p>
-        {onAdd && <button className={styles.emptyAction} onClick={onAdd}>{manage ? "Set up" : "Create"} {weekly ? "weekly" : "daily"} quest</button>}
-      </div>}
+    <section aria-label={group.title} style={{ marginTop: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <h2 className={styles.panelLbl} style={{ margin: 0 }}>{group.title}</h2>
+        <span style={{ fontSize: 11, fontFamily: "var(--font-mono)", color: done === group.goals.length && done > 0 ? "var(--green)" : "var(--text-tertiary)" }}>
+          {done}/{group.goals.length}
+        </span>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {group.goals.length ? children : <p style={{ fontSize: 11, color: "var(--text-tertiary)", fontFamily: "var(--font-mono)", padding: "10px 0" }}>
+          No {weekly ? "weekly" : "daily"} quests yet.
+        </p>}
+      </div>
     </section>
   );
 }

@@ -1,11 +1,10 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { USER_CATEGORIES, CAT_META } from "../constants";
 import { todayStr, calcBaseXP, getThisWeekCount, canEditGoal, editWindowHoursLeft } from "../utils";
 import styles from "../styles.module.css";
 import { useIsMobile } from "../hooks/useIsMobile";
 import AddSheet from "./AddSheet";
-import QuestSection, { questGroups } from "./QuestSection";
-import questStyles from "./quests.module.css";
+import { questGroups } from "./QuestSection";
 import QuestSheet from "./QuestSheet";
 import AgentSuggestModal from "./AgentSuggestModal";
 import EmptyHint from "./EmptyHint";
@@ -111,8 +110,11 @@ export default function GoalsView({
 
       {/* ── Habits section ── */}
       {questGroups(habitual).map(group => (
-        <QuestSection key={group.key} group={group} state={state}
-          onAdd={() => { setInitialFrequency(group.frequency); setAddType("habitual"); setAddOpen(true); }}>
+        <Fragment key={group.key}>
+          <SectionHeader title={group.title} count={group.goals.length}
+            onAdd={() => { setInitialFrequency(group.frequency); setAddType("habitual"); setAddOpen(true); }} />
+          <div style={{ marginBottom: 18 }}>
+            {group.goals.length === 0 && <EmptyHint text={group.key === "daily" ? "Daily quests earn XP every day." : "Set a weekly target. Earn XP with each completion."} />}
           {group.goals.map(g => {
             const freq        = g.frequency || 7;
             const isWeekly    = freq < 7;
@@ -123,12 +125,15 @@ export default function GoalsView({
             const streak      = state.streaks[g.id] || 0;
             const xp          = g.template && g.difficulty ? calcBaseXP(g.template, g.difficulty, g.category, "habitual") : (g.weight || 10);
             return (
-              <div key={g.id} className={questStyles.row}>
-                <div style={{ width: 7, height: 7, borderRadius: "50%", background: CAT_META[g.category]?.accent || "var(--text-tertiary)", flexShrink: 0, opacity: isDone ? 0.3 : 1, transition: "opacity 0.2s" }} />
+              <div key={g.id} style={{
+                display: "flex", alignItems: "center", gap: 12,
+                padding: "13px 0", borderBottom: "1px solid var(--border-light)",
+              }}>
+                <div style={{ width: 4, height: 28, borderRadius: 2, background: CAT_META[g.category]?.accent || "var(--text-tertiary)", flexShrink: 0, opacity: isDone ? 0.3 : 1, transition: "opacity 0.2s" }} />
 
                 {/* Clickable info → opens calendar */}
-                <button
-                  className={questStyles.nameButton}
+                <div
+                  style={{ flex: 1, minWidth: 0, cursor: "pointer" }}
                   onClick={() => setCalendarGoal(g)}
                   title="View completion calendar"
                 >
@@ -145,14 +150,14 @@ export default function GoalsView({
                       </span>
                     )}
                   </div>
-                  <div className={questStyles.meta}>
-                    {g.category} · +{xp} XP
+                  <div style={{ fontSize: 10, color: "var(--text-tertiary)", marginTop: 3, letterSpacing: "0.06em", fontFamily: "var(--font-mono)", display: "flex", alignItems: "center", gap: 6 }}>
+                    {isWeekly ? "Weekly Quest" : "Daily Quest"} / {g.category.toUpperCase()} · +{xp} XP
                     {isWeekly
                       ? ` · ${thisWeekCnt}/${freq} this week${streak > 1 ? ` · ${streak}W STK` : ""}`
                       : streak > 1 ? ` · ${streak}D STK` : ""}
                     <span style={{ fontSize: 8, color: "var(--text-tertiary)", opacity: 0.5 }}>📅</span>
                   </div>
-                </button>
+                </div>
 
                 {g.surge?.target && !isDoneToday && (
                   <button
@@ -174,9 +179,8 @@ export default function GoalsView({
                   onClick={() => onCompleteHabitual(g.id)}
                   disabled={isDoneToday}
                   aria-label={isDoneToday ? `${g.name} recorded today` : `Complete ${g.name}`}
-                  title={isDoneToday ? "Recorded today" : "Complete quest"}
                   style={{
-                    width: 40, height: 40, borderRadius: 8,
+                    width: 26, height: 26, borderRadius: 4,
                     border: `1.5px solid ${isDoneToday ? "var(--green)" : weeklyMet ? "rgba(34,197,94,0.4)" : "var(--border)"}`,
                     background: isDoneToday ? "var(--green)" : "transparent",
                     color: isDoneToday ? "#fff" : "transparent",
@@ -191,7 +195,8 @@ export default function GoalsView({
               </div>
             );
           })}
-        </QuestSection>
+          </div>
+        </Fragment>
       ))}
 
       {/* ── Milestones section ── */}

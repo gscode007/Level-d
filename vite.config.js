@@ -39,7 +39,7 @@ export default defineConfig({
         ],
         shortcuts: [
           { name: 'Dashboard', url: '/?source=pwa', icons: [{ src: 'pwa-192x192.png', sizes: '192x192' }] },
-          { name: 'Goals',     url: '/?source=pwa&view=goals', icons: [{ src: 'pwa-192x192.png', sizes: '192x192' }] },
+          { name: 'Quests',     url: '/?source=pwa&view=goals', icons: [{ src: 'pwa-192x192.png', sizes: '192x192' }] },
           { name: 'History',   url: '/?source=pwa&view=history', icons: [{ src: 'pwa-192x192.png', sizes: '192x192' }] },
         ],
       },

@@ -20,7 +20,7 @@ import QuestSheet from "./QuestSheet";
         of the level, immutable after. More can still be added later.
    ────────────────────────────────────────────────────────────────────────── */
 
-const STEPS = ["Arc", "Identities", "Weights", "Goals"];
+const STEPS = ["Arc", "Identities", "Weights", "Quests"];
 
 const GOAL_TYPES = [
   { key: "habitual",  label: "Quest" },

@@ -52,7 +52,7 @@ export default function GoalsView({
               ? `Level ${level.sequenceInArc || level.num} · Tier ${state.rank?.current || "E"}`
               : `Level ${level.num} · ${level.title}`}
           </p>
-          <h1 className={styles.pageH1} style={{ fontSize: isMobile ? 24 : 30 }}>Goals</h1>
+          <h1 className={styles.pageH1} style={{ fontSize: isMobile ? 24 : 30 }}>Quests</h1>
         </div>
         <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
           <AgentButton enabled={aiAgentEnabled} onClick={() => setAgentOpen(true)} />
@@ -80,7 +80,7 @@ export default function GoalsView({
             fontSize: 11, color: "var(--text-secondary)",
             fontFamily: "var(--font-mono)", letterSpacing: "0.03em",
           }}>
-            Edit window open · <span style={{ color: "var(--accent)", fontWeight: 700 }}>{hoursLeft}h left</span> to revise your initial goals
+            Edit window open · <span style={{ color: "var(--accent)", fontWeight: 700 }}>{hoursLeft}h left</span> to revise your initial quests
           </span>
         </div>
       )}
@@ -405,17 +405,14 @@ export default function GoalsView({
   );
 }
 
-// Phase 6: sticky section header for the single-scroll goals layout. Each
+// Section headers share the page background for a quieter quest layout. Each
 // section gets a self-contained "+" affordance for its own type, replacing
 // the old tab row.
 function SectionHeader({ title, count, countHint, onAdd }) {
   return (
     <div style={{
-      position: "sticky",
-      top: 0,
-      zIndex: 5,
-      background: "var(--bg)",
-      borderBottom: "1px solid var(--border)",
+      background: "transparent",
+      borderBottom: "1px solid var(--border-light)",
       marginBottom: 12,
     }}>
       <div style={{
@@ -448,8 +445,8 @@ function SectionHeader({ title, count, countHint, onAdd }) {
           title={`Add a ${title.toLowerCase().replace(/s$/, "")}`}
           style={{
             flexShrink: 0,
-            background: "var(--surface-2)",
-            color: "var(--text-primary)",
+            background: "transparent",
+            color: "var(--text-secondary)",
             border: "1px solid var(--border)",
             borderRadius: 6,
             padding: "4px 10px",
@@ -458,10 +455,10 @@ function SectionHeader({ title, count, countHint, onAdd }) {
             letterSpacing: "0.04em",
             lineHeight: 1,
             cursor: "pointer",
-            transition: "all 0.15s",
+            transition: "background 0.15s, color 0.15s",
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.color = "var(--accent)"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-primary)"; }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = "var(--border)"; e.currentTarget.style.color = "var(--text-primary)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-secondary)"; }}
         >+ Add</button>
       </div>
     </div>

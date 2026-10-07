@@ -124,7 +124,7 @@ export default function AgentSuggestModal({ level, existingGoalNames, onAddGoals
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
           <h2 style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)", letterSpacing: "0.02em" }}>
-            ◆ AI Agent · Suggested Goals
+            ◆ AI Agent · Suggested Quests
           </h2>
           <button
             onClick={onClose}

@@ -348,7 +348,7 @@ export default function HabitsPanel({ level, state, onCompleteHabitual, onResist
               textAlign: "center",
             }}
           >
-            + Add / manage goals
+            + Add / manage quests
           </button>
         </div>
       )}

@@ -3,7 +3,7 @@ import { THEME_CONFIG } from "../theme.config.js";
 
 const NAV = [
   { id: "dashboard", label: "Today"    },
-  { id: "goals",     label: "Goals"    },
+  { id: "goals",     label: "Quests"    },
   { id: "history",   label: "History"  },
   { id: "settings",  label: "Settings" },
 ];

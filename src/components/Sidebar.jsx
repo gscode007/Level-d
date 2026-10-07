@@ -4,7 +4,7 @@ import { THEME_CONFIG } from "../theme.config.js";
 
 const NAV_ITEMS = [
   ["dashboard", "Dashboard"],
-  ["goals",     "Goals"    ],
+  ["goals",     "Quests"    ],
   ["reports",   "Reports"  ],
   ["history",   "History"  ],
   ["settings",  "Settings" ],

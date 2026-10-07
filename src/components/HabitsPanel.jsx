@@ -4,6 +4,7 @@ import { todayStr, calcBaseXP, getThisWeekCount, getGoalIdentities } from "../ut
 import { getGamificationConfig } from "../gamification.config.js";
 import { habitBaseXP, computeHabitXP } from "../gamification/xp.js";
 import styles from "../styles.module.css";
+import QuestSection, { questGroups } from "./QuestSection";
 import { useIsMobile } from "../hooks/useIsMobile";
 
 export default function HabitsPanel({ level, state, onCompleteHabitual, onResistQuit, onSuccumbQuit, onGoToGoals }) {
@@ -68,10 +69,9 @@ export default function HabitsPanel({ level, state, onCompleteHabitual, onResist
 
   return (
     <div className={styles.panel} style={{
-      borderLeft: "2px solid var(--accent)",
       position: "relative",
       overflow: "hidden",
-      boxShadow: "var(--shadow-sm), inset 2px 0 16px rgba(59,130,246,0.04)",
+      boxShadow: "var(--shadow-sm)",
     }}>
       {/* Floating XP pops */}
       {pops.map(pop => (
@@ -96,7 +96,7 @@ export default function HabitsPanel({ level, state, onCompleteHabitual, onResist
       {/* Header */}
       <div style={{ marginBottom: 14 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-          <p className={styles.panelLbl}>Today's Quests</p>
+          <p className={styles.panelLbl}>Quest Board</p>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {todayXP > 0 && (
               <span style={{
@@ -148,16 +148,9 @@ export default function HabitsPanel({ level, state, onCompleteHabitual, onResist
 
       {/* Habit list */}
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        {habits.length === 0 && (
-          <div style={{ padding: "24px 0", textAlign: "center" }}>
-            <p style={{ fontSize: 13, color: "var(--text-tertiary)", marginBottom: 14 }}>
-              No quests defined yet.
-            </p>
-            <button className={styles.ghostBtn} onClick={onGoToGoals}>+ Define quests</button>
-          </div>
-        )}
-
-        {habits.map(g => {
+        {questGroups(habits).map(group => (
+          <QuestSection key={group.key} group={group} state={state} onAdd={onGoToGoals} manage>
+          {group.goals.map(g => {
           const freq         = g.frequency || 7;
           const isWeekly     = freq < 7;
           const isDoneToday  = state.lastCompletions?.[g.id] === t;
@@ -172,6 +165,11 @@ export default function HabitsPanel({ level, state, onCompleteHabitual, onResist
           return (
             <div
               key={g.id}
+              role="button"
+              tabIndex={isDoneToday ? -1 : 0}
+              aria-disabled={isDoneToday}
+              aria-label={isDoneToday ? `${g.name} recorded today` : `Complete ${g.name}`}
+              onKeyDown={e => { if (e.target === e.currentTarget && !isDoneToday && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); handleComplete(g.id); } }}
               onClick={() => !isDoneToday && handleComplete(g.id)}
               onMouseEnter={() => !isDoneToday && setHovered(g.id)}
               onMouseLeave={() => setHovered(null)}
@@ -188,7 +186,6 @@ export default function HabitsPanel({ level, state, onCompleteHabitual, onResist
                   : isHovered ? `${accent}50`
                   : "var(--border)"
                 }`,
-                borderLeft: `3px solid ${isDone ? "var(--green)" : accent}`,
                 borderRadius: 6,
                 cursor: isDoneToday ? "default" : "pointer",
                 transition: "all 0.18s var(--easing-out)",
@@ -228,7 +225,7 @@ export default function HabitsPanel({ level, state, onCompleteHabitual, onResist
                   fontFamily: "var(--font-mono)", letterSpacing: "0.06em", marginTop: 2,
                   display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap",
                 }}>
-                  <span>{isWeekly ? "Weekly Quest" : "Daily Quest"} / {g.category.toUpperCase()}</span>
+                  <span>{g.category.toUpperCase()}</span>
                   {getGoalIdentities(g).filter(id => id !== g.category).map(id => {
                     const meta = CAT_META[id];
                     if (!meta) return null;
@@ -326,7 +323,9 @@ export default function HabitsPanel({ level, state, onCompleteHabitual, onResist
               </div>
             </div>
           );
-        })}
+          })}
+          </QuestSection>
+        ))}
       </div>
 
       {/* Add habit shortcut */}

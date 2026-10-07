@@ -4,6 +4,8 @@ import { todayStr, calcBaseXP, getThisWeekCount, canEditGoal, editWindowHoursLef
 import styles from "../styles.module.css";
 import { useIsMobile } from "../hooks/useIsMobile";
 import AddSheet from "./AddSheet";
+import QuestSection, { questGroups } from "./QuestSection";
+import questStyles from "./quests.module.css";
 import QuestSheet from "./QuestSheet";
 import AgentSuggestModal from "./AgentSuggestModal";
 import EmptyHint from "./EmptyHint";
@@ -18,6 +20,7 @@ export default function GoalsView({
   addOpen, setAddOpen, addType, setAddType,
   aiAgentEnabled,
 }) {
+  const [initialFrequency, setInitialFrequency] = useState(7);
   const [agentOpen, setAgentOpen] = useState(false);
   const [questAddOpen, setQuestAddOpen] = useState(false);
   const editingGoal = editingGoalId
@@ -56,7 +59,7 @@ export default function GoalsView({
           <AgentButton enabled={aiAgentEnabled} onClick={() => setAgentOpen(true)} />
           <button
             className={styles.addBtn}
-            onClick={() => { setAddType("habitual"); setAddOpen(true); }}
+            onClick={() => { setInitialFrequency(7); setAddType("habitual"); setAddOpen(true); }}
             title="Add a quest (use a section's + to add other types)"
           >
             + Quest
@@ -107,17 +110,10 @@ export default function GoalsView({
       </div>
 
       {/* ── Habits section ── */}
-      <SectionHeader
-        title="Quests"
-        count={habitual.length}
-        onAdd={() => { setAddType("habitual"); setAddOpen(true); }}
-      />
-      <div style={{ marginBottom: 18 }}>
-        <div>
-          {habitual.length === 0 && (
-            <EmptyHint text="Daily or weekly quests earn XP every completion." />
-          )}
-          {habitual.map(g => {
+      {questGroups(habitual).map(group => (
+        <QuestSection key={group.key} group={group} state={state}
+          onAdd={() => { setInitialFrequency(group.frequency); setAddType("habitual"); setAddOpen(true); }}>
+          {group.goals.map(g => {
             const freq        = g.frequency || 7;
             const isWeekly    = freq < 7;
             const isDoneToday = state.lastCompletions[g.id] === t;
@@ -127,15 +123,12 @@ export default function GoalsView({
             const streak      = state.streaks[g.id] || 0;
             const xp          = g.template && g.difficulty ? calcBaseXP(g.template, g.difficulty, g.category, "habitual") : (g.weight || 10);
             return (
-              <div key={g.id} style={{
-                display: "flex", alignItems: "center", gap: 12,
-                padding: "13px 0", borderBottom: "1px solid var(--border-light)",
-              }}>
-                <div style={{ width: 4, height: 28, borderRadius: 2, background: CAT_META[g.category]?.accent || "var(--text-tertiary)", flexShrink: 0, opacity: isDone ? 0.3 : 1, transition: "opacity 0.2s" }} />
+              <div key={g.id} className={questStyles.row}>
+                <div style={{ width: 7, height: 7, borderRadius: "50%", background: CAT_META[g.category]?.accent || "var(--text-tertiary)", flexShrink: 0, opacity: isDone ? 0.3 : 1, transition: "opacity 0.2s" }} />
 
                 {/* Clickable info → opens calendar */}
-                <div
-                  style={{ flex: 1, minWidth: 0, cursor: "pointer" }}
+                <button
+                  className={questStyles.nameButton}
                   onClick={() => setCalendarGoal(g)}
                   title="View completion calendar"
                 >
@@ -152,14 +145,14 @@ export default function GoalsView({
                       </span>
                     )}
                   </div>
-                  <div style={{ fontSize: 10, color: "var(--text-tertiary)", marginTop: 3, letterSpacing: "0.06em", fontFamily: "var(--font-mono)", display: "flex", alignItems: "center", gap: 6 }}>
-                    {isWeekly ? "Weekly Quest" : "Daily Quest"} / {g.category.toUpperCase()} · +{xp} XP
+                  <div className={questStyles.meta}>
+                    {g.category} · +{xp} XP
                     {isWeekly
                       ? ` · ${thisWeekCnt}/${freq} this week${streak > 1 ? ` · ${streak}W STK` : ""}`
                       : streak > 1 ? ` · ${streak}D STK` : ""}
                     <span style={{ fontSize: 8, color: "var(--text-tertiary)", opacity: 0.5 }}>📅</span>
                   </div>
-                </div>
+                </button>
 
                 {g.surge?.target && !isDoneToday && (
                   <button
@@ -180,8 +173,10 @@ export default function GoalsView({
                 <button
                   onClick={() => onCompleteHabitual(g.id)}
                   disabled={isDoneToday}
+                  aria-label={isDoneToday ? `${g.name} recorded today` : `Complete ${g.name}`}
+                  title={isDoneToday ? "Recorded today" : "Complete quest"}
                   style={{
-                    width: 26, height: 26, borderRadius: 4,
+                    width: 40, height: 40, borderRadius: 8,
                     border: `1.5px solid ${isDoneToday ? "var(--green)" : weeklyMet ? "rgba(34,197,94,0.4)" : "var(--border)"}`,
                     background: isDoneToday ? "var(--green)" : "transparent",
                     color: isDoneToday ? "#fff" : "transparent",
@@ -196,8 +191,8 @@ export default function GoalsView({
               </div>
             );
           })}
-        </div>
-      </div>
+        </QuestSection>
+      ))}
 
       {/* ── Milestones section ── */}
       <SectionHeader
@@ -373,6 +368,7 @@ export default function GoalsView({
       {addOpen && (
         <AddSheet
           type={addType}
+          initialFrequency={initialFrequency}
           onAdd={g => { onAddGoal(g); setAddOpen(false); }}
           onClose={() => setAddOpen(false)}
         />

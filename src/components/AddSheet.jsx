@@ -20,7 +20,7 @@ const ANCHOR_LABELS = {
   prep:     "Prep",
 };
 
-export default function AddSheet({ type, editing, onAdd, onUpdate, onClose }) {
+export default function AddSheet({ type, initialFrequency = 7, editing, onAdd, onUpdate, onClose }) {
   const isEditMode = !!editing;
   const effectiveType = editing?.type || type;
 
@@ -28,7 +28,7 @@ export default function AddSheet({ type, editing, onAdd, onUpdate, onClose }) {
   const [cat, setCat]           = useState(editing?.category && editing.category !== "Resilience" ? editing.category : "Emotional");
   const [template, setTemplate] = useState(editing?.template || SMART_TEMPLATE["Emotional"][effectiveType] || "Standard");
   const [difficulty, setDiff]   = useState(editing?.difficulty || "Medium");
-  const [frequency, setFreq]    = useState(editing?.frequency || 7);
+  const [frequency, setFreq]    = useState(editing?.frequency || initialFrequency);
   const [steps, setSteps]       = useState(
     editing?.milestoneSteps?.map(s => ({ name: s.name, completed: s.completed })) || [{ name: "" }, { name: "" }]
   );

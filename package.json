@@ -10,7 +10,10 @@
     "preview": "vite preview",
     "test": "node --test \"src/**/*.test.mjs\"",
     "electron:ico": "node scripts/create-ico.mjs",
-    "electron:build": "npm run electron:ico && cross-env CSC_LINK= electron-builder --win"
+    "electron:dev": "node scripts/start-desktop.mjs",
+    "widget:start": "node scripts/start-widget.mjs",
+    "widget:install": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-widget.ps1",
+    "electron:build": "npm run build && npm run electron:ico && cross-env CSC_LINK= electron-builder --win"
   },
   "dependencies": {
     "@sentry/browser": "^10.55.0",
@@ -39,7 +42,8 @@
       "output": "release"
     },
     "files": [
-      "electron/main.cjs",
+      "electron/*.cjs",
+      "dist/**/*",
       "build-assets/**/*"
     ],
     "win": {

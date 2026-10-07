@@ -2,6 +2,7 @@ import { useState } from "react";
 import styles from "../styles.module.css";
 import { useIsMobile } from "../hooks/useIsMobile";
 import ApiKeysModal from "./ApiKeysModal";
+import CheckinSettings from './CheckinSettings.jsx';
 
 /**
  * Settings view — collects everything that used to be jammed into the
@@ -63,6 +64,9 @@ export default function SettingsView({
         </div>
       </Section>
 
+      <Section title="Desktop check-ins">
+        <CheckinSettings uid={user.uid} />
+      </Section>
       {/* ── Appearance ──────────────────────────────────────────────────── */}
       <Section title="Appearance">
         <Row

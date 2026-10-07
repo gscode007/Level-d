@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { onAuthStateChanged, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from "firebase/auth";
-import { doc, getDoc, setDoc, collection, query, orderBy, getDocs } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, query, orderBy, getDocs, onSnapshot, runTransaction } from "firebase/firestore";
 import { auth, db, googleProvider } from "./firebase";
-import { getOverallScore, getRank, mkDefault, genId, mkLevel, applyResilienceDecay, reconcileQuestXP, calcBaseXP, getDailyCatXP, getThisWeekCount, getPrevWeekCount, canEditGoal, getWeeklyVotes, isCheckinDue } from "./utils";
-import { RANKS, CATEGORIES, USER_CATEGORIES, DAILY_XP_CAP } from "./constants";
+import { getOverallScore, getRank, mkDefault, genId, mkLevel, applyResilienceDecay, reconcileQuestXP, calcBaseXP, canEditGoal, getWeeklyVotes, isCheckinDue } from "./utils";
+import { RANKS, CATEGORIES, USER_CATEGORIES } from "./constants";
 import { getGamificationConfig } from "./gamification.config.js";
-import { computeHabitXP, habitBaseXP, toCompletionRecord } from "./gamification/xp.js";
+import { completeHabit } from "./checkin/completeHabit.js";
+import { prepareDashboardWrite } from "./checkin/dashboardSync.js";
 import { evaluateBoss } from "./gamification/boss.js";
 import { evaluateGates } from "./gamification/progression.js";
 import { applyQualifyingLevel, levelsToNextRank } from "./gamification/rank.js";
@@ -31,8 +32,6 @@ import ReactiveBackground from "./components/background/ReactiveBackground";
 import { useIsMobile } from "./hooks/useIsMobile";
 import { useOnlineStatus } from "./hooks/useOnlineStatus";
 
-const RESILIENCE_XP_PER_HABIT = 5;
-
 function readCollapsed() {
   try { return localStorage.getItem("lrpg-sidebar-collapsed") === "true"; } catch { return false; }
 }
@@ -47,6 +46,7 @@ export default function App() {
   const [authError, setAuthError]   = useState(null);
   const [loadError, setLoadError]   = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [persistRetry, setPersistRetry] = useState(0);
   const [view, setView]             = useState("dashboard");
   const [toast, setToast]           = useState(null);
   const [addOpen, setAddOpen]       = useState(false);
@@ -70,6 +70,8 @@ export default function App() {
   const loadedUidRef = useRef(null);
   // Warn (once per session) before the single user doc nears Firestore's 1MB cap.
   const docSizeWarnedRef = useRef(false);
+  const loadedWidgetRevisionRef = useRef(0);
+  const persistChainRef = useRef(Promise.resolve());
 
   function handleTouchStart(e) {
     touchStartX.current = e.touches[0].clientX;
@@ -119,7 +121,16 @@ export default function App() {
     getDoc(doc(db, "users", uid))
       .then(snap => {
         if (cancelled) return;
-        const data = snap.exists() ? snap.data() : mkDefault();
+        let data = snap.exists() ? snap.data() : mkDefault();
+        loadedWidgetRevisionRef.current = data.widgetRevision || 0;
+        try {
+          const pending = JSON.parse(localStorage.getItem(`leveld-dashboard-pending:${uid}`) || 'null');
+          if (pending?.state && pending.widgetRevision === loadedWidgetRevisionRef.current) data = pending.state;
+          else if (pending) {
+            localStorage.removeItem(`leveld-dashboard-pending:${uid}`);
+            setToast('Your widget recorded newer progress. Please retry any unsynced dashboard changes.');
+          }
+        } catch { /* Firestore remains the fallback if device storage is unavailable. */ }
         // Backfill the user's IANA timezone once so the client and the MCP
         // server resolve "today" identically (additive; defaults to this
         // device's zone, which matches the pre-change browser-local behavior).
@@ -156,8 +167,49 @@ export default function App() {
       docSizeWarnedRef.current = true;
       captureError(new Error(`User state doc is ${bytes} bytes, approaching Firestore's 1,048,576-byte limit`), { uid: user.uid, bytes });
     }
-    setDoc(doc(db, "users", user.uid), state).catch(e => { console.error(e); captureError(e, { where: "persistState", uid: user.uid }); });
-  }, [state]); // eslint-disable-line react-hooks/exhaustive-deps
+    const expectedWidgetRevision = loadedWidgetRevisionRef.current;
+    const reference = doc(db, "users", user.uid);
+    const pendingKey = `leveld-dashboard-pending:${user.uid}`;
+    const pendingValue = JSON.stringify({ state, widgetRevision: expectedWidgetRevision });
+    try { localStorage.setItem(pendingKey, pendingValue); }
+    catch { setToast('Device storage is unavailable. Keep this page open until your changes sync.'); }
+    // Preserve click order even when Firestore retries a transaction.
+    persistChainRef.current = persistChainRef.current.catch(() => {}).then(() => runTransaction(db, async transaction => {
+      const snapshot = await transaction.get(reference);
+      transaction.set(reference, prepareDashboardWrite(snapshot.data(), state, expectedWidgetRevision));
+    })).then(() => {
+      try { if (localStorage.getItem(pendingKey) === pendingValue) localStorage.removeItem(pendingKey); } catch { /* optional cleanup */ }
+    }).catch(e => {
+      if (e.message === "widget-sync-conflict") {
+        setToast("Your widget recorded progress. Refreshing—please retry your last dashboard change.");
+        setRefreshKey(key => key + 1);
+      } else {
+        console.error(e);
+        captureError(e, { where: "persistState", uid: user.uid });
+        setToast("Your latest change could not sync. Keep Level’d open and reconnect to try again.");
+      }
+    });
+  }, [state, persistRetry]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const retry = () => setPersistRetry(value => value + 1);
+    window.addEventListener('online', retry);
+    return () => window.removeEventListener('online', retry);
+  }, []);
+
+  // Independent widget writes are versioned. Refresh the dashboard when one
+  // arrives, and reject any older in-flight save rather than overwrite it.
+  useEffect(() => {
+    if (!user?.uid) return;
+    let seen = 0;
+    return onSnapshot(doc(db, "users", user.uid), snapshot => {
+      const revision = snapshot.data()?.widgetRevision || 0;
+      if (loadedUidRef.current === user.uid && revision > loadedWidgetRevisionRef.current && revision > seen) {
+        seen = revision;
+        setRefreshKey(key => key + 1);
+      }
+    }, error => captureError(error, { where: "widgetSync" }));
+  }, [user?.uid]);
 
   // Phase 10: fetch the catScores from the level completed `levelsBack` levels
   // back, so the identity portrait can overlay then-vs-now. Refreshes when the
@@ -408,125 +460,18 @@ export default function App() {
   }
 
   function completeHabitual(goalId, opts = {}) {
-    const goal = currentLevel.goals.find(g => g.id === goalId);
-    if (!goal) return;
-    // "Today" resolves in the user's IANA timezone so the client and the MCP
-    // server agree on the civil day (same toDateString format as before).
-    const tz = resolveTimeZone(state);
-    const t = tzToday(tz);
-    if (state.lastCompletions[goalId] === t) { notify("Already done today"); return; }
-
-    // Surge completion is a superset of baseline — same completion + streak,
-    // just a harder target and a bonus multiplier. Ignored if no surge variant.
-    const isSurge = opts.surge === true && !!goal.surge;
-
-    const freq = goal.frequency || 7;
-    const isWeekly = freq < 7;
-
-    const yStr = tzYesterday(tz);
-
-    // ── Streak calculation (unchanged) ─────────────────────────────────────────
-    const thisWeekCount   = isWeekly ? getThisWeekCount(goal.completions || []) : 0;
-    const completingTarget = isWeekly && thisWeekCount + 1 >= freq;
-
-    let newStreak;
-    if (isWeekly) {
-      if (completingTarget) {
-        const prevWeekCount = getPrevWeekCount(goal.completions || []);
-        const prevMet = prevWeekCount >= freq;
-        newStreak = prevMet ? (state.streaks[goalId] || 0) + 1 : 1;
-      } else {
-        newStreak = state.streaks[goalId] || 0; // mid-week, don't change yet
-      }
-    } else {
-      newStreak = state.lastCompletions[goalId] === yStr ? (state.streaks[goalId] || 0) + 1 : 1;
-    }
-    const newStreaks = { ...state.streaks, [goalId]: newStreak };
-
-    // ── XP calculation ────────────────────────────────────────────────────────
-    // The central XP module (src/gamification/xp.js) owns the stacking rule.
-    // The streak multiplier reads the per-habit streak; for weekly habits it
-    // only applies once the weekly target is met (mirrors the prior gating).
-    // The comeback bonus fires on the first completion after a missed day —
-    // daily habits with prior history whose last completion wasn't yesterday.
-    // It is additive and ceiling-exempt; streak math itself is untouched.
-    const cfg = getGamificationConfig(state);
-    const baseXP = habitBaseXP(goal);
-    const effectiveStreak = isWeekly ? (completingTarget ? newStreak : 0) : newStreak;
-    const isComeback = !isWeekly && !!state.lastCompletions[goalId] && state.lastCompletions[goalId] !== yStr;
-    const xpResult = computeHabitXP({ baseXP, streak: effectiveStreak, isSurge, goal, isComeback, config: cfg });
-    const rawPts = xpResult.total;
-
-    // Apply per-category daily XP cap
-    const todayDailyCat = getDailyCatXP(state.dailyCatXP, goal.category, t);
-    const pts    = Math.max(0, Math.min(rawPts, DAILY_XP_CAP - todayDailyCat));
-    const todayDailyRes = getDailyCatXP(state.dailyCatXP, "Resilience", t);
-    const resPts = Math.max(0, Math.min(RESILIENCE_XP_PER_HABIT, DAILY_XP_CAP - todayDailyRes));
-
-    // Update daily tracking
-    const newDailyCatXP = {
-      ...state.dailyCatXP,
-      [t]: {
-        ...(state.dailyCatXP?.[t] || {}),
-        [goal.category]: todayDailyCat + pts,
-        Resilience: todayDailyRes + resPts,
-      },
-    };
-
-    // Goal's own category XP
-    const newScores = { ...state.catScores, [goal.category]: (state.catScores[goal.category] || 0) + pts };
-    const newRanks  = { ...state.catRanks,  [goal.category]: getRank(newScores[goal.category]) };
-
-    // Resilience auto-XP
-    const newResScore = (newScores.Resilience || 0) + resPts;
-    newScores.Resilience = newResScore;
-    newRanks.Resilience  = getRank(newResScore);
-
-    const completionTs = Date.now();
-    // Write-time XP breakdown. To keep the single user doc under Firestore's 1MB
-    // ceiling (Layer 2), the per-completion breakdown is NOT stored inline on the
-    // goal — it goes to the append-only xpAudit subcollection below. completions[]
-    // stays a slim number[] so every existing read site is untouched.
-    const xpRecord = toCompletionRecord(completionTs, xpResult, { applied: pts, surge: isSurge });
-    const newLevels = state.levels.map(l =>
-      l.id === currentLevel.id
-        ? { ...l, goals: l.goals.map(g => g.id === goalId
-            ? { ...g, completions: [...(g.completions || []), completionTs] }
-            : g) }
-        : l
-    );
-
-    setState(s => ({
-      ...s,
-      levels: newLevels,
-      catScores: newScores,
-      catRanks: newRanks,
-      streaks: newStreaks,
-      lastCompletions: { ...s.lastCompletions, [goalId]: t },
-      lastHabitDate: t,
-      consecutiveMissed: 0,
-      decayAppliedOn: t,
-      dailyCatXP: newDailyCatXP,
-    }));
-
-    appendXpAudit(user?.uid, {
-      kind: "habit_completion", source: "app", goalId, day: t, streak: newStreak, xp: pts,
-      breakdown: {
-        base: xpRecord.base,
-        streakMultiplier: xpRecord.streakMultiplier,
-        surgeMultiplier: xpRecord.surgeMultiplier,
-        comebackBonus: xpRecord.comebackBonus,
-      },
-    });
-
-    const surgeTag = isSurge ? " ⚡SURGE" : "";
-    if (isComeback && xpResult.comebackBonus > 0) {
-      notify(`◈ Back on track! +${pts} XP · ${goal.category}${surgeTag}`);
-    } else {
-      notify(`+${pts} XP · ${goal.category}${surgeTag}  +${resPts} RES`);
-    }
-    setRecentCompletion({ goalId, ts: completionTs, comeback: isComeback && xpResult.comebackBonus > 0 });
-    if (navigator.vibrate) navigator.vibrate(isComeback ? [10, 40, 10] : 10);
+    let result;
+    try { result = completeHabit(state, goalId, opts); }
+    catch (error) { notify(error.message); return; }
+    if (result.duplicate) { notify("Already done today"); return; }
+    setState(previous => ({ ...previous, ...result.patch }));
+    appendXpAudit(user?.uid, { ...result.audit, source: "app" });
+    const surgeTag = result.surge ? " ⚡SURGE" : "";
+    notify(result.comeback
+      ? `◈ Back on track! +${result.points} XP · ${result.category}${surgeTag}`
+      : `+${result.points} XP · ${result.category}${surgeTag}  +${result.resilience} RES`);
+    if (!opts.suppressNote) setRecentCompletion({ goalId, ts: result.ts, comeback: result.comeback });
+    if (navigator.vibrate) navigator.vibrate(result.comeback ? [10, 40, 10] : 10);
   }
 
   function completeMilestoneStep(goalId, stepIdx) {

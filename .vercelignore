@@ -3,3 +3,7 @@ electron
 build-assets
 release
 scripts
+.env*
+*firebase-adminsdk*.json
+*-service-account*.json
+tests

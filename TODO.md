@@ -16,6 +16,6 @@ Tracked here so they don't get lost in commit messages.
 
 - [ ] **AI Agent (`api/agent/generate.js`)** — built but on hold. No rate limiting, no auth, no abuse protection. Currently behind the `aiAgentEnabled` flag in user state, which defaults to off and is only flippable via the sidebar dev toggle. Before turning that toggle on for non-dev users: add auth + rate limit.
 
-- [ ] **Electron build artifacts** — `electron/main.cjs` and `npm run electron:build` still work, but the desktop binary is no longer a shipping surface. Either remove the build script or repurpose Electron as a thin PWA wrapper.
+- [x] **Electron companion** — repurposed as a tray app for strict habit check-ins. See `docs/strict-checkins.md` for development and shipping instructions.
 
 - [ ] **No history of weekly check-ins** — only the latest is stored (`state.lastWeeklyCheckin`). A history panel would help users see identity drift over time.

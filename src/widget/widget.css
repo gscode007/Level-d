@@ -1,0 +1,34 @@
+html, body, #root { background: transparent; width: 100%; height: 100%; overflow: hidden; }
+body { background-image: none; font-family: 'Geist', sans-serif; color: var(--text-primary); }
+.widget-shell { height: 100%; background: #131b27f5; border: 1px solid #ffffff20; border-radius: 14px; overflow: auto; }
+.widget-header { display: flex; align-items: center; padding: 16px 24px 0; gap: 7px; height: 40px; user-select: none; }
+.widget-header strong { font-size: 9px; letter-spacing: .16em; color: #aebed2; }
+.widget-mark { color: #73beff; font-size: 17px; }
+.widget-toggle { -webkit-app-region: no-drag; margin-left: auto; background: transparent; border: 0; color: #aebed2; font-size: 17px; cursor: pointer; padding: 0 3px; }
+.widget-summary { background: transparent; border: 0; width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 3px 13px 10px; cursor: pointer; color: #eef4ff; font-size: 13px; }
+.widget-summary small { font-size: 10px; color: #92a7be; }
+.widget-panel { padding: 22px; max-width: 540px; margin: 0 auto; }
+.widget-panel h1 { font-size: 24px; font-weight: 500; line-height: 1.15; letter-spacing: -.04em; margin: 0 0 14px; }
+.widget-panel p { color: #99aec7; font-size: 13px; line-height: 1.6; margin-bottom: 18px; }
+.widget-panel small { color: #99aec7; font-size: 10px; }
+.widget-primary { padding: 12px; background: #3b82f6; border: 0; border-radius: 7px; color: white; width: 100%; cursor: pointer; margin-bottom: 18px; }
+.widget-panel button:disabled { opacity: .45; cursor: default; }
+.widget-setting { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 12px; padding: 10px 0; border-top: 1px solid #ffffff14; }
+.widget-setting select { background: #1b2b42; color: #e8eeff; border: 1px solid #ffffff24; border-radius: 5px; padding: 6px; }
+.widget-panel footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 24px; padding-top: 12px; border-top: 1px solid #ffffff18; }
+.widget-panel footer span { color: #99aec7; overflow-wrap: anywhere; font-size: 10px; }
+.widget-panel footer button { background: transparent; border: 0; color: #aebed2; font-size: 11px; cursor: pointer; flex-shrink: 0; }
+.widget-panel .widget-error { color: #fca5a5; }
+.strict-checkin { width: 100%; max-height: 100dvh; height: 100%; border-radius: 14px; padding: 24px; }
+.strict-checkin::backdrop { background: transparent; backdrop-filter: none; }
+.checkin-eyebrow { -webkit-app-region: no-drag; }
+@media (min-width: 760px) {
+  .strict-checkin { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(270px, .8fr); grid-template-rows: auto auto auto auto minmax(0, 1fr) auto auto; column-gap: 36px; padding: 32px; overflow: hidden; }
+  .checkin-eyebrow { grid-column: 1 / -1; }
+  .strict-checkin h1, #checkin-description, .checkin-count, .checkin-habits { grid-column: 1; }
+  .checkin-habits { overflow-y: auto; align-content: start; padding: 3px; }
+  .checkin-later { grid-column: 2; grid-row: 2 / 6; align-self: start; border-top: 0; border-left: 1px solid var(--border); padding: 0 0 0 28px; margin-top: 24px; }
+  .checkin-time-row { flex-direction: column; }
+  .checkin-error, .checkin-rule { grid-column: 1 / -1; }
+}
+:focus-visible { outline: 2px solid #73beff; outline-offset: 2px; }

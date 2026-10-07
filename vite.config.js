@@ -94,6 +94,7 @@ export default defineConfig({
   ],
   build: {
     rollupOptions: {
+      input: { app: 'index.html', widget: 'widget.html' },
       output: {
         manualChunks: {
           firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore'],

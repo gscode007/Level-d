@@ -5,7 +5,7 @@ It does not load App.jsx, show the dashboard, launch a browser, or require Vite.
 Between check-ins its window is hidden. When due, a fixed popup appears centered
 on the monitor containing the pointer, matching that monitor’s aspect ratio at
 about 72% of the available size. It cannot be moved, resized, minimized, or closed.
-Completing or rescheduling hides it again. No dashboard is opened.
+Completing, continuing with the saved schedule, or rescheduling hides it again. No dashboard is opened.
 
 ## Run and install
 
@@ -33,11 +33,14 @@ in Windows Task Scheduler. Use its tray menu to quit between check-ins.
 Check-ins default to every two hours between 09:00 and 22:00, in device time.
 Use **Check-in settings** from the tray icon to change timing or open **Check in now**.
 Settings and first-time sign-in can be hidden with **Done**; active check-ins
-only offer completion or rescheduling.
-An active check-in has exactly two resolution paths:
+offer completion, continuing with the saved schedule, or an optional custom time.
+An active check-in has three resolution paths:
 
 1. Record all remaining habitual goals.
-2. Choose another check-in time: 15/30/60 minutes, or a custom time between one
+2. **Continue with schedule**: leave unfinished quests pending and schedule the
+   next check-in using the saved interval and reminder hours. This clears any
+   earlier custom-time override and resets its reschedule count.
+3. Optionally choose another check-in time: 15/30/60 minutes, or a custom time between one
    minute and 24 hours ahead. Explicit times override the normal reminder window.
 
 There is no skip, missed-today, Escape dismissal, or backdrop dismissal.
@@ -71,6 +74,21 @@ tabs opened before deployment to load the revision guard. The widget itself
 requires no website deployment.
 
 ## Verification
+
+The widget includes an Add side quest form in both its settings view and the
+active check-in. It supports identity dimensions, reward bands, signature quests,
+and current chapter linking. New quests are saved transactionally to the existing
+account quest list with a widget revision, so open dashboards refresh safely.
+Adding a quest does not award XP or dismiss an active check-in. Failed saves retain
+the draft; reconnect and retry to save it.
+
+Active side quests for the current chapter and unlinked side quests also appear
+in the check-in checklist, including quests added while the popup is open. They
+show their flat XP reward and can be marked complete in the widget. Completion
+updates XP and rank transactionally and only once, marks XP as awarded to avoid
+dashboard reconciliation awarding it again, and refreshes open dashboards through
+the widget revision. Side quests count as remaining check-in items, even after
+all daily or weekly quests have been recorded; choose a later time if unfinished.
 
 Website Settings → Desktop check-ins controls frequency, active hours, enabled
 state, and an explicit next check-in time. Commands sync through the account to

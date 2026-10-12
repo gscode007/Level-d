@@ -1,0 +1,82 @@
+/* Challenges shares the page and form primitives in styles.module.css.
+   These rules cover only feature layout and the app's existing visual vocabulary. */
+.ch-page { max-width: none; width: 100%; font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif; color: var(--text-primary); overflow-wrap: anywhere; }
+.ch-page h1 { margin: 0; }
+.ch-page h2, .ch-page h3 { font-family: 'Instrument Serif', Georgia, serif; font-weight: 300; letter-spacing: -.01em; line-height: 1.2; }
+.ch-page h2 { font-size: 24px; margin: 20px 0 14px; }
+.ch-page h3 { font-size: 18px; margin: 0 0 14px; }
+.ch-page h4 { font: 600 9px var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--text-secondary); margin: 20px 0 12px; }
+.ch-page p, .ch-modal p { font-size: 12px; line-height: 1.6; }
+.ch-header, .ch-modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.ch-header { margin-bottom: 32px; }
+.ch-header > div { min-width: 0; }
+.ch-modal-head { margin-bottom: 20px; }
+.ch-intro { margin-top: 10px; }
+.ch-kicker { font: 600 10px var(--font-mono); text-transform: uppercase; letter-spacing: .12em; color: var(--accent); }
+.ch-muted { color: var(--text-secondary); font-size: 12px; line-height: 1.6; }
+.ch-page button, .ch-modal button { min-height: 36px; padding: 8px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: transparent; color: var(--text-secondary); cursor: pointer; font: 500 11px var(--font-mono); letter-spacing: .02em; transition: background .15s, color .15s, border-color .15s; }
+.ch-page button:hover:not(:disabled), .ch-modal button:hover:not(:disabled) { background: var(--surface-2); color: var(--text-primary); border-color: var(--text-tertiary); }
+.ch-page button:disabled, .ch-modal button:disabled { opacity: .5; cursor: default; }
+.ch-page button.ch-primary, .ch-modal button.ch-primary { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); font-weight: 600; }
+.ch-page button.ch-primary:hover:not(:disabled), .ch-modal button.ch-primary:hover:not(:disabled) { background: var(--accent); color: var(--text-primary); }
+.ch-page :focus-visible, .ch-modal :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.ch-card { margin: 16px 0; padding: 20px 22px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); min-width: 0; }
+.ch-card > h2:first-child { margin-top: 0; font-size: 22px; }
+.ch-pending { border-color: var(--accent); }
+.ch-boundary { padding: 14px 18px; background: var(--accent-dim); border: 1px solid var(--border); border-radius: var(--radius-md); margin: 20px 0; font-size: 11px; }
+.ch-boundary > strong { font: 500 11px var(--font-mono); letter-spacing: .02em; line-height: 1.65; }
+.ch-boundary p { margin: 8px 0 0; color: var(--text-secondary); max-width: 75ch; }
+.ch-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.ch-grid > .ch-card { margin: 8px 0; }
+.ch-field { display: flex; flex-direction: column; gap: 6px; margin: 14px 0; }
+.ch-field > label { margin-bottom: 0; color: var(--text-secondary); }
+.ch-field input, .ch-field select, .ch-field textarea { min-height: 40px; font-family: inherit; }
+.ch-field textarea { min-height: 100px; resize: vertical; }
+.ch-field input:focus, .ch-field select:focus, .ch-field textarea:focus { border-color: var(--accent); }
+.ch-field input[type=file] { font-size: 12px; }
+.ch-field input[type=file]::file-selector-button { padding: 5px 9px; margin-right: 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text-secondary); font: 11px var(--font-mono); cursor: pointer; }
+.ch-page fieldset { padding: 16px 18px; border: 1px solid var(--border); border-radius: var(--radius-md); margin: 20px 0; min-width: 0; }
+.ch-page legend { color: var(--text-secondary); font: 600 10px var(--font-mono); text-transform: uppercase; letter-spacing: .1em; padding: 0 8px; }
+.ch-days, .ch-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ch-days label, .ch-check { display: flex; gap: 8px; align-items: center; font-size: 12px; line-height: 1.5; min-height: 36px; }
+.ch-check { margin: 18px 0; }
+.ch-check input, .ch-days input { accent-color: var(--accent); }
+.ch-rules ul { list-style: none; padding: 0; margin: 0; }
+.ch-rules li { padding: 12px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.ch-rules li span, .ch-quest > div > span { display: block; margin-top: 5px; font-size: 11px; color: var(--text-secondary); line-height: 1.6; }
+.ch-rules > p { margin-top: 14px; }
+.ch-quest { display: flex; justify-content: space-between; gap: 16px; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.ch-quest > div { min-width: 0; }
+.ch-quest strong, .ch-progress > strong, .ch-record > strong { font-weight: 500; }
+.ch-quest p { margin: 5px 0; }
+.ch-quest button { flex-shrink: 0; }
+.ch-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.ch-stats strong { display: block; font: 400 24px var(--font-mono); color: var(--text-primary); font-variant-numeric: tabular-nums; margin-bottom: 6px; }
+.ch-stats span { font-size: 10px; color: var(--text-secondary); }
+.ch-record, .ch-progress { border-top: 1px solid var(--border); padding: 14px 0; font-size: 12px; overflow-wrap: anywhere; }
+.ch-record p { margin: 8px 0; }
+.ch-record .ch-muted { display: block; }
+.ch-page summary { cursor: pointer; font: 500 11px var(--font-mono); letter-spacing: .01em; padding: 8px 0; color: var(--text-secondary); }
+.ch-page summary:hover { color: var(--text-primary); }
+.ch-error { padding: 12px 16px; border: 1px solid var(--red); color: var(--red); background: var(--surface); border-radius: var(--radius-md); }
+.ch-error button { margin-left: 12px; }
+.ch-page .ch-challenge-button { display: flex; flex-direction: column; gap: 10px; text-align: left; width: 100%; padding: 20px 22px; background: var(--surface); border-radius: var(--radius-md); font-family: inherit; letter-spacing: normal; }
+.ch-challenge-button > strong { font: 300 22px 'Instrument Serif', Georgia, serif; color: var(--text-primary); line-height: 1.2; }
+.ch-modal { padding: 22px 26px 28px; max-width: min(540px, calc(100vw - 32px)); width: 100%; box-sizing: border-box; max-height: 85vh; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); color: var(--text-primary); font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif; box-shadow: var(--shadow-lg); }
+.ch-modal::backdrop { background: rgba(8,14,26,.75); }
+.ch-modal h2 { font-size: 15px; font-weight: 600; letter-spacing: .02em; margin: 4px 0; }
+.ch-modal-head > button { min-width: 28px; min-height: 28px; padding: 3px 7px; background: var(--surface-2); font-size: 14px; }
+.ch-proof { max-width: 100%; max-height: 60vh; object-fit: contain; display: block; margin: 16px auto; }
+.ch-timer output { display: block; font: 28px var(--font-mono); margin: 18px 0; }
+@media (max-width: 767px) {
+  .ch-page { padding: 20px 14px 24px; }
+  .ch-page h1 { font-size: 24px; }
+  .ch-grid { grid-template-columns: 1fr; }
+  .ch-header { margin-bottom: 16px; flex-wrap: wrap; }
+  .ch-header > .ch-primary { margin-top: 0; }
+  .ch-quest { flex-direction: column; align-items: stretch; gap: 10px; }
+  .ch-card { padding: 16px 18px; }
+  .ch-page button, .ch-modal button { min-height: 40px; }
+  .ch-modal-head > button { min-height: 32px; }
+}
+@media (prefers-reduced-motion: reduce) { .ch-page button, .ch-modal button { transition: none; } }

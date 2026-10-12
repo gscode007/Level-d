@@ -4,6 +4,9 @@ dist
 .env.local
 
 .vercel
+.challenge-tool-cache
+test-results
+*-debug.log
 
 release
 *.exe

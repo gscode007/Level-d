@@ -10,3 +10,7 @@ The independent desktop widget runs without opening the Level’d dashboard:
 The popup stays hidden until a check-in is due. Use its tray icon to set reminder
 times or choose **Check in now**.
 See [strict check-ins](docs/strict-checkins.md) for behavior and testing.
+
+Challenges are available in the dashboard sidebar. See [Challenges setup and
+verification](docs/challenges.md) for the private two-person flow, Firebase rules,
+server credentials, scheduled finalization and local development commands.

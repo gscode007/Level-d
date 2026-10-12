@@ -4,6 +4,8 @@ import { createRoot } from 'react-dom/client';
 import { useStrictCheckin } from '../../src/hooks/useStrictCheckin';
 import StrictCheckin from '../../src/components/StrictCheckin';
 import { tzToday } from '../../src/gamification/time';
+import SideQuestForm from '../../src/widget/SideQuestForm.jsx';
+import { createSideQuest, completeSideQuest } from '../../src/widget/sideQuest.js';
 import '../../src/index.css';
 import '../../src/widget/widget.css';
 
@@ -24,9 +26,10 @@ function Fixture() {
   const [command, setCommand] = useState(null);
   window.sendCheckinCommand = setCommand;
   const checkin = useStrictCheckin('integration-test', state, command);
-  function complete(id) {
+  function complete(id, options = {}) {
     setState(old => {
-      const next = { ...old, lastCompletions: { ...old.lastCompletions, [id]: tzToday(old.timezone) } };
+      const next = options.sideQuest ? { ...old, ...completeSideQuest(old, id).patch }
+        : { ...old, lastCompletions: { ...old.lastCompletions, [id]: tzToday(old.timezone) } };
       localStorage.setItem('checkin-fixture-progress', JSON.stringify(next));
       return next;
     });
@@ -36,7 +39,14 @@ function Fixture() {
     <button onClick={checkin.checkNow}>Check in now</button>
     <output data-testid="active">{checkin.active ? 'active' : 'inactive'}</output>
     <output data-testid="remaining">{checkin.pending.length}</output>
-    {checkin.active && <StrictCheckin checkin={checkin} onComplete={complete} />}
+    {checkin.active && <StrictCheckin checkin={checkin} onComplete={complete} extraContent={<SideQuestForm state={state} onAdd={async payload => {
+      if (window.failNextQuestSave) { window.failNextQuestSave = false; throw new Error('Could not save. Try again.'); }
+      setState(old => {
+        const next = { ...old, quests: [...(old.quests || []), createSideQuest(old, payload, crypto.randomUUID(), Date.now())] };
+        localStorage.setItem('checkin-fixture-progress', JSON.stringify(next));
+        return next;
+      });
+    }} />} />}
   </main>;
 }
 createRoot(document.getElementById('root')).render(<StrictMode><Fixture /></StrictMode>);

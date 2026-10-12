@@ -7,3 +7,6 @@ scripts
 *firebase-adminsdk*.json
 *-service-account*.json
 tests
+.challenge-tool-cache
+test-results
+*-debug.log

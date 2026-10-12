@@ -109,7 +109,12 @@ export function BrandMark({ size = DEFAULT_SIZE, glow = false, color = "currentC
 export const NAV_ICONS = {
   dashboard: DashboardIcon,
   goals:     GoalsIcon,
+  challenges: ChallengesIcon,
   reports:   ReportsIcon,
   history:   HistoryIcon,
   settings:  SettingsIcon,
 };
+
+function ChallengesIcon(props) {
+  return <Svg {...props}><circle cx="8" cy="7" r="3"/><circle cx="17" cy="8" r="2.5"/><path d="M2 20v-3a6 6 0 0 1 12 0v3M16 13a5 5 0 0 1 6 5v2"/></Svg>;
+}

@@ -26,6 +26,7 @@ import GoalsView from "./components/GoalsView";
 import HistoryView from "./components/HistoryView";
 import ReportsView from "./components/ReportsView";
 import SettingsView from "./components/SettingsView";
+import ChallengesView from "./challenges/ChallengesView.jsx";
 import QuickNotePopup from "./components/QuickNotePopup";
 import AscensionMoment from "./components/AscensionMoment";
 import ReactiveBackground from "./components/background/ReactiveBackground";
@@ -47,7 +48,7 @@ export default function App() {
   const [loadError, setLoadError]   = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [persistRetry, setPersistRetry] = useState(0);
-  const [view, setView]             = useState("dashboard");
+  const [view, setView]             = useState(() => window.location.hash.startsWith("#challenge-invite=") ? "challenges" : "dashboard");
   const [toast, setToast]           = useState(null);
   const [addOpen, setAddOpen]       = useState(false);
   const [addType, setAddType]       = useState("habitual");
@@ -101,6 +102,14 @@ export default function App() {
     // Pick up the result if we came back from a redirect sign-in
     getRedirectResult(auth).catch(() => {});
     return onAuthStateChanged(auth, u => setUser(u || null));
+  }, []);
+
+  useEffect(() => {
+    const openChallengeInvite = () => {
+      if (window.location.hash.startsWith("#challenge-invite=")) setView("challenges");
+    };
+    window.addEventListener("hashchange", openChallengeInvite);
+    return () => window.removeEventListener("hashchange", openChallengeInvite);
   }, []);
 
   // ── Load data from Firestore; apply Resilience decay immediately ───────────
@@ -831,6 +840,7 @@ export default function App() {
         />
       )}
       {view === "reports" && <ReportsView state={state} />}
+      {view === "challenges" && <ChallengesView key={user.uid} user={user} />}
       {view === "history" && <HistoryView state={state} />}
       {view === "settings" && (
         <SettingsView
@@ -906,6 +916,7 @@ export default function App() {
           {/* Floating hamburger — fixed so it stays visible while scrolling */}
           <button
             onClick={() => setDrawerOpen(true)}
+            aria-label="Open navigation"
             style={{
               position: "fixed",
               top: 14, left: 14,

@@ -1,0 +1,141 @@
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import { mkdir } from 'node:fs/promises';
+import { startFixture } from './server.mjs';
+import { verifyClientRules } from './rules.mjs';
+import { verifyTransactions } from './transactions.mjs';
+import { mkDefault } from '../../src/utils.js';
+const require = createRequire(import.meta.url);
+const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const fixture = await startFixture();
+let browser;
+try {
+  await verifyClientRules(fixture.db);
+  await verifyTransactions(fixture.db);
+  for (const name of ['alice', 'bob']) {
+    const personal = mkDefault();
+    await fixture.db.collection('users').doc(name).set({ ...personal, setupDone: true, preserved: true, timezone: 'UTC', reduceBackgroundMotion: true,
+      quests: [{ id: 'personal-quest', title: 'Existing personal quest', status: 'pending', dimension: 'Physical', xp: 25, chapterId: personal.currentLevelId }] });
+  }
+  browser = await chromium.launch({ headless: true, channel: process.env.CHALLENGE_BROWSER_CHANNEL || 'chrome' });
+  const aliceContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const bobContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const alice = await aliceContext.newPage(); const bob = await bobContext.newPage();
+  const errors = []; for (const page of [alice, bob]) { page.on('pageerror', e => errors.push(e.message)); page.setDefaultTimeout(20000); }
+  await alice.goto('http://127.0.0.1:5175/tests/challenges/index.html?actor=alice');
+  await bob.goto('http://127.0.0.1:5175/tests/challenges/index.html?actor=bob');
+  await alice.getByRole('button', { name: '+ Create challenge', exact: true }).click();
+  await alice.getByLabel('Challenge name').fill('Build together');
+  await alice.getByLabel('Partner’s sign-in email').fill('bob@example.com');
+  await alice.getByLabel('Agreed timezone (IANA)').fill('UTC');
+  await alice.getByRole('button', { name: 'Create private invitation' }).click();
+  await alice.getByRole('heading', { name: 'Invitation ready' }).waitFor();
+  const link = await alice.getByLabel('Invitation link').inputValue(); assert.ok(link.includes('#challenge-invite='));
+  const inviteUrl = new URL(link); inviteUrl.search = '?actor=bob';
+  await bob.goto(inviteUrl.href);
+  await bob.waitForFunction(() => window.challengeTestActor === 'bob');
+  await bob.getByRole('button', { name: 'Accept invitation', exact: true }).click();
+  await bob.getByRole('button', { name: 'Propose initial quests and rules' }).waitFor();
+  await alice.getByRole('button', { name: /Build together/ }).click();
+  await alice.getByRole('button', { name: 'Propose initial quests and rules' }).click();
+  await alice.getByLabel('Requirement', { exact: true }).fill('Read twenty pages');
+  await alice.getByLabel('Extra-effort threshold', { exact: true }).fill('Read forty pages');
+  await alice.getByLabel('Proof collected at completion').selectOption('checkin');
+  await alice.getByRole('button', { name: '+ Add challenge quest' }).click();
+  await alice.getByLabel('Requirement', { exact: true }).nth(1).fill('Take a walk');
+  await alice.getByLabel('Extra-effort threshold', { exact: true }).nth(1).fill('Walk for an hour');
+  await alice.getByLabel('Proof collected at completion').nth(1).selectOption('photo');
+  await alice.getByRole('button', { name: '+ Add challenge quest' }).click();
+  await alice.getByLabel('Requirement', { exact: true }).nth(2).fill('Practice music');
+  await alice.getByLabel('Extra-effort threshold', { exact: true }).nth(2).fill('Practice for an hour');
+  await alice.getByLabel('Frequency', { exact: true }).nth(2).selectOption('weekly');
+  await alice.getByLabel('Assigned to').nth(2).selectOption('owner');
+  await alice.getByLabel('Weekly target (distinct days)').fill('4');
+  await alice.getByLabel('Extra frequency (optional)').fill('6');
+  await alice.getByLabel('Proof collected at completion').nth(2).selectOption('timer');
+  await alice.getByLabel('Punishment for each missed day').fill('Wash the dishes');
+  await alice.getByLabel('Punishment for each weekly shortfall').fill('Extra household chore');
+  await alice.getByLabel('Weekly reward target').fill('1');
+  await alice.getByLabel('Reward earned once per week').fill('Movie night');
+  await alice.getByRole('button', { name: 'Submit for partner approval' }).click();
+  await alice.getByRole('heading', { name: 'Pending mutual approval' }).waitFor();
+  assert.equal(await alice.getByRole('button', { name: 'Accept agreement' }).count(), 0);
+  await bob.getByRole('button', { name: 'Refresh', exact: true }).click();
+  await bob.getByRole('button', { name: 'Accept agreement', exact: true }).click();
+  await bob.getByRole('heading', { name: 'Your quests today' }).waitFor();
+  await alice.getByRole('button', { name: 'Refresh', exact: true }).click();
+  await alice.getByRole('heading', { name: 'Your quests today' }).waitFor();
+  await alice.getByRole('button', { name: 'Record', exact: true }).nth(0).click();
+  await alice.getByLabel(/I met the extra-effort threshold/).check();
+  await alice.getByLabel('Check-in proof').fill('Read forty pages today.');
+  await alice.getByRole('button', { name: 'Record completion', exact: true }).click();
+  await alice.getByRole('dialog').waitFor({ state: 'detached' });
+  await alice.getByRole('button', { name: 'Record', exact: true }).nth(0).click();
+  await alice.getByLabel('Private photo proof').setInputFiles({ name: 'proof.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aP1sAAAAASUVORK5CYII=', 'base64') });
+  await alice.getByRole('button', { name: 'Record completion', exact: true }).click();
+  await alice.getByRole('dialog').waitFor({ state: 'detached' });
+  await alice.getByRole('button', { name: 'Record', exact: true }).click();
+  await alice.getByRole('button', { name: 'Start timer', exact: true }).click();
+  await alice.waitForFunction(() => Number(document.querySelector('dialog output')?.textContent.replace('s', '')) >= 1);
+  await alice.getByRole('button', { name: 'Pause timer', exact: true }).click();
+  await alice.getByRole('button', { name: 'Record completion', exact: true }).click();
+  await alice.getByRole('dialog').waitFor({ state: 'detached' });
+  await bob.getByRole('button', { name: 'Refresh', exact: true }).click();
+  await bob.getByRole('button', { name: 'View private photo', exact: true }).click();
+  await bob.getByRole('dialog').getByRole('img').waitFor();
+  await bob.getByRole('button', { name: 'Close dialog' }).click();
+  fixture.setTime('2026-10-05T00:00:00Z');
+  await bob.getByRole('button', { name: 'Refresh', exact: true }).click();
+  await bob.getByRole('button', { name: 'Mark fulfilled', exact: true }).waitFor();
+  await bob.getByRole('button', { name: 'Mark fulfilled', exact: true }).click();
+  await alice.getByRole('button', { name: 'Refresh', exact: true }).click();
+  await alice.getByRole('button', { name: 'Mark claimed', exact: true }).waitFor();
+  await alice.getByRole('button', { name: 'Mark claimed', exact: true }).click();
+  await alice.reload(); await alice.getByRole('button', { name: /Build together/ }).click();
+  await alice.getByRole('heading', { name: 'Your quests today' }).waitFor();
+  await alice.getByRole('button', { name: 'Propose quest or rule changes' }).click();
+  await alice.getByLabel('Requirement', { exact: true }).nth(0).fill('Read thirty pages');
+  await alice.getByRole('button', { name: 'Submit for partner approval' }).click();
+  await bob.getByRole('button', { name: 'Refresh', exact: true }).click();
+  await bob.getByRole('button', { name: 'Reject agreement', exact: true }).click();
+  await bob.getByRole('button', { name: 'Browse complete history' }).click();
+  await bob.getByRole('heading', { name: 'Complete history' }).waitFor();
+  assert.equal(await bob.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, 'Mobile layout must not overflow');
+  await mkdir('test-results/challenges', { recursive: true });
+  await alice.screenshot({ path: 'test-results/challenges/desktop.png', fullPage: true });
+  await bob.screenshot({ path: 'test-results/challenges/mobile.png', fullPage: true });
+  assert.deepEqual(errors, []);
+  for (const [name, context] of [['alice', aliceContext], ['bob', bobContext]]) {
+    const shell = await context.newPage(); shell.on('pageerror', e => errors.push(e.message));
+    await shell.goto(`http://127.0.0.1:5175/tests/challenges/index.html?actor=${name}&shell=1`);
+    if (name === 'bob') await shell.getByRole('button', { name: 'Open navigation', exact: true }).click();
+    await shell.getByRole('button', { name: 'Challenges', exact: true }).click();
+    await shell.getByRole('button', { name: /Build together/ }).click();
+    await shell.getByRole('heading', { name: 'Your quests today' }).waitFor();
+    await shell.screenshot({ path: `test-results/challenges/app-${name}.png`, fullPage: true });
+    assert.equal(await shell.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    const challengeType = await shell.getByRole('heading', { name: 'Challenges', exact: true }).evaluate(el => {
+      const style = getComputedStyle(el); return { family: style.fontFamily, size: style.fontSize, weight: style.fontWeight };
+    });
+    assert.ok(challengeType.family.includes('Instrument Serif'));
+    if (name === 'bob') await shell.getByRole('button', { name: 'Open navigation', exact: true }).click();
+    await shell.getByRole('button', { name: 'Quests', exact: true }).click();
+    const questsType = await shell.getByRole('heading', { name: 'Quests', exact: true }).evaluate(el => {
+      const style = getComputedStyle(el); return { family: style.fontFamily, size: style.fontSize, weight: style.fontWeight };
+    });
+    assert.deepEqual(challengeType, questsType, 'Challenges title must use the same typography as Quests');
+    const personal = (await fixture.db.collection('users').doc(name).get()).data();
+    assert.equal(personal.preserved, true); assert.equal(personal.quests[0].status, 'pending'); assert.ok(Object.values(personal.catScores).every(score => score === 0));
+    await shell.close();
+  }
+  assert.deepEqual(errors, []);
+  console.log('PASS: Real emulator-authenticated two-account browser flow: invitation, agreement, all proof types, closure, settlement, refresh, rejection, history, desktop/mobile.');
+} catch (error) {
+  await mkdir('test-results/challenges', { recursive: true });
+  if (browser) for (const [i, context] of browser.contexts().entries()) for (const page of context.pages()) {
+    console.error(`Browser ${i} alerts:`, await page.getByRole('alert').allTextContents());
+    console.error(`Browser ${i} body:`, (await page.locator('body').innerText()).slice(0, 1500));
+    await page.screenshot({ path: `test-results/challenges/failure-${i}.png`, fullPage: true });
+  }
+  throw error;
+} finally { await browser?.close(); await fixture.server.close(); await fixture.db.terminate(); }

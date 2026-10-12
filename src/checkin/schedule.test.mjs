@@ -1,6 +1,27 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_CHECKIN, inReminderWindow, nextCheckin, nextReminderWindow, normalizeSettings, pendingHabits, readSchedule, validSnooze } from './schedule.js';
+import { continueCheckinSchedule, DEFAULT_CHECKIN, inReminderWindow, nextCheckin, nextReminderWindow, normalizeSettings, pendingHabits, readSchedule, validSnooze } from './schedule.js';
+
+test('continue with schedule clears a custom snooze and persists the saved interval', () => {
+  const now = new Date(2026, 8, 27, 12).getTime();
+  const settings = { enabled: true, intervalMinutes: 60, startHour: 9, endHour: 22 };
+  const previous = { settings, active: true, explicit: true, snoozes: 3, nextAt: now, commandId: 'saved', commandError: '' };
+  const next = continueCheckinSchedule(previous, now);
+  assert.equal(next.nextAt, new Date(2026, 8, 27, 13).getTime());
+  assert.equal(next.active, false);
+  assert.equal(next.explicit, false);
+  assert.equal(next.snoozes, 0);
+  assert.deepEqual(next.settings, settings);
+  assert.deepEqual(readSchedule(JSON.stringify(next), now), next);
+  assert.equal(previous.active, true);
+});
+
+test('continue with schedule respects reminder hours instead of keeping a custom time', () => {
+  const now = new Date(2026, 8, 27, 21).getTime();
+  const previous = { settings: DEFAULT_CHECKIN, active: true, explicit: true, snoozes: 1,
+    nextAt: new Date(2026, 8, 27, 23).getTime() };
+  assert.equal(continueCheckinSchedule(previous, now).nextAt, new Date(2026, 8, 28, 9).getTime());
+});
 
 test('periodic reminders move into tomorrow’s window at closing time', () => {
   const now = new Date(2026, 8, 27, 21, 0).getTime();

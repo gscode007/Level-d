@@ -4,7 +4,8 @@ import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from '../firebase.js';
 import { useStrictCheckin } from '../hooks/useStrictCheckin.js';
 import StrictCheckin from '../components/StrictCheckin.jsx';
-import { recordWidgetHabit } from './data.js';
+import { recordWidgetHabit, recordWidgetQuest, addWidgetQuest } from './data.js';
+import SideQuestForm from './SideQuestForm.jsx';
 
 export default function Widget() {
   const [user, setUser] = useState(undefined);
@@ -54,12 +55,21 @@ export default function Widget() {
     catch { setError('Sign-in did not finish. Try again and use your Level’d Google account.'); }
     finally { setBusy(null); }
   }
-  async function complete(goalId) {
+  async function complete(goalId, options = {}) {
     if (inFlight.current) return;
-    if (!navigator.onLine) { setError('You’re offline. Reconnect to record this habit, or choose a later check-in.'); return; }
+    if (!navigator.onLine) { setError('You’re offline. Reconnect to record this quest, or choose a later check-in.'); return; }
     inFlight.current = true; setBusy(goalId); setError('');
-    try { await recordWidgetHabit(user.uid, goalId); }
+    try { await (options.sideQuest ? recordWidgetQuest : recordWidgetHabit)(user.uid, goalId); }
     catch { setError('Could not save the completion. Reconnect and try again, or choose a later check-in.'); }
+    finally { inFlight.current = false; setBusy(null); }
+  }
+
+  async function addQuest(payload) {
+    if (inFlight.current) throw new Error('Wait for the current save to finish.');
+    if (!navigator.onLine) throw new Error('Reconnect to add your side quest. Your draft will stay here.');
+    inFlight.current = true; setBusy('side-quest');
+    try { await addWidgetQuest(user.uid, payload); }
+    catch (err) { throw new Error('Could not save the side quest. Check your connection and try again.'); }
     finally { inFlight.current = false; setBusy(null); }
   }
 
@@ -81,8 +91,9 @@ export default function Widget() {
           <h1>No quests connected yet.</h1><p>Finish setup in Level’d using this Google account. This widget will pick up your quests automatically.</p>
         </> : <>
           <h1>{checkin.pending.length ? `${checkin.pending.length} quests remaining` : 'All recorded for now.'}</h1>
-          <p>Next check-in: {next}. Complete your quests or choose a later time when it appears.</p>
+          <p>Next check-in: {next}. Record your quests, continue with your schedule, or optionally choose a different time when it appears.</p>
           <button className="widget-primary" disabled={!checkin.pending.length} onClick={() => { setError(''); checkin.checkNow(); }}>Check in now</button>
+          <SideQuestForm state={state} onAdd={addQuest} busy={!!busy} />
           <label className="widget-setting">Every
             <select aria-label="Check-in interval" value={checkin.schedule?.settings.intervalMinutes || 120}
               onChange={event => checkin.configure({ intervalMinutes: Number(event.target.value) })}>
@@ -109,7 +120,8 @@ export default function Widget() {
         {(error || checkin.error) && <p role="alert" className="widget-error">{error || checkin.error}</p>}
         {user && <footer><span>{user.email}</span><button onClick={() => signOut(auth).catch(() => setError('Could not sign out. Try again.'))}>Sign out</button></footer>}
       </section>}
-      {checkin.active && <StrictCheckin checkin={{ ...checkin, error: error || checkin.error }} onComplete={complete} busyGoalId={busy} />}
+      {checkin.active && <StrictCheckin checkin={{ ...checkin, error: error || checkin.error }} onComplete={complete} busyGoalId={busy}
+        extraContent={<SideQuestForm state={state} onAdd={addQuest} busy={!!busy} />} />}
     </div>
   );
 }

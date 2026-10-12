@@ -16,6 +16,11 @@ export function nextCheckin(now, settings) {
   return nextReminderWindow(Number(now) + config.intervalMinutes * 60_000, config);
 }
 
+export function continueCheckinSchedule(schedule, now = Date.now()) {
+  return { ...schedule, active: false, explicit: false, snoozes: 0,
+    nextAt: nextCheckin(now, schedule.settings) };
+}
+
 export function nextReminderWindow(now, settings) {
   const config = normalizeSettings(settings);
   const next = new Date(Number(now));
@@ -53,6 +58,13 @@ export function pendingHabits(state, now = Date.now()) {
       .filter(day => day >= weekKey && day <= dayKey));
     return completedDays.size < frequency;
   });
+}
+
+export function pendingCheckinQuests(state, now = Date.now()) {
+  const sideQuests = (state?.quests || []).filter(quest => quest.status !== 'completed'
+    && (!quest.chapterId || quest.chapterId === state.currentLevelId));
+  return [...pendingHabits(state, now), ...sideQuests.map(quest => ({ ...quest,
+    type: 'sideQuest', name: quest.title, category: quest.dimension }))];
 }
 
 export function readSchedule(raw, now = Date.now()) {

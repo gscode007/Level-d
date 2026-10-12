@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { applyCheckinCommand } from '../checkin/remoteControl.js';
-import { inReminderWindow, nextCheckin, nextReminderWindow, normalizeSettings, pendingHabits, readSchedule, validSnooze } from "../checkin/schedule.js";
+import { continueCheckinSchedule, inReminderWindow, nextCheckin, nextReminderWindow, normalizeSettings, pendingCheckinQuests, readSchedule, validSnooze } from "../checkin/schedule.js";
 
 export function useStrictCheckin(uid, state, command = null) {
   const key = uid ? `leveld-checkin-v1:${uid}` : null;
@@ -9,7 +9,7 @@ export function useStrictCheckin(uid, state, command = null) {
   const [error, setError] = useState("");
   const schedule = record?.key === key ? record.schedule : null;
   const ready = !!(key && state?.setupDone && schedule);
-  const pending = pendingHabits(state, now);
+  const pending = pendingCheckinQuests(state, now);
 
   useEffect(() => {
     if (!key) { setRecord(null); return; }
@@ -100,10 +100,15 @@ export function useStrictCheckin(uid, state, command = null) {
       nextAt: schedule.explicit ? schedule.nextAt : nextCheckin(Date.now(), settings) });
   }
 
+  function continueWithSchedule() {
+    if (!schedule) return false;
+    return commit(continueCheckinSchedule(schedule));
+  }
+
   function checkNow() {
     if (!schedule || !pending.length) return;
     commit({ ...schedule, settings: { ...schedule.settings, enabled: true }, nextAt: Date.now(), active: true });
   }
 
-  return { active, pending, schedule, error, snooze, configure, checkNow };
+  return { active, pending, schedule, error, snooze, continueWithSchedule, configure, checkNow };
 }
